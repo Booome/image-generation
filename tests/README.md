@@ -1,6 +1,6 @@
 # image-generation 工具链测试
 
-`python run_e2e.py` 一条命令跑完全部：**4 组离线单测**（零网络、零费用）→ **无头 Chromium 交互断言** → **蒙版像素校验 + `bbox_from_mask.py` 集成**。退出码 0 = 全绿。
+`python run_e2e.py` 一条命令跑完全部：**离线单测**（多组，零网络零费用）→ **无头 Chromium 交互断言** → **蒙版像素校验 + `bbox_from_mask.py` 集成**。退出码 0 = 全绿。
 
 > 断言清单以各测试文件为准，本文件不写死条数（写死的数字必然随代码漂移）。要验"测试真的会失败"，跑 `python mutation_check.py` —— 它故意改坏实现，要求套件变红。
 
@@ -15,12 +15,12 @@ npx playwright install chromium    # 约 115MB，只下载一次
 ## 运行
 
 ```bash
-python run_e2e.py                              # 默认底图 资产/场景/scn-000002.jpg
+python run_e2e.py                              # 默认底图 tests/fixtures/sample.jpg
 python run_e2e.py --unit-only                  # 只跑离线单测（不需要 Chromium）
 python run_e2e.py --image <path> --keep-mask out.png
 ```
 
-## 离线单测（4 组，不需要 node）
+## 离线单测（多组，不需要 node）
 
 | 文件 | 覆盖 |
 |---|---|
