@@ -95,7 +95,9 @@ if repo is None:
     print("  [skip] 非 git 工作树，跳过")
 else:
     for pattern in ("node_modules", "__pycache__"):
-        r = subprocess.run(["git", "check-ignore", "-q", str(SK / "tests" / pattern)],
+        # trailing slash: a directory-only rule must be tested against a path
+        # git treats as a directory even when it does not exist on disk yet.
+        r = subprocess.run(["git", "check-ignore", "-q", str(SK / "tests" / pattern) + "/"],
                            capture_output=True, cwd=str(repo))
         if r.returncode != 0:
             hard.append("%s 未被 git 忽略" % pattern)
