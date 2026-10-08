@@ -147,7 +147,7 @@ print("--- sidecar: the cataloguing draft, not run-time bookkeeping ---")
 import json as _json
 
 SIDECAR_KEYS = {"provider", "model", "endpoint", "requested_spec", "resolved_size",
-                "actual_size", "quality", "n", "watermark", "reference_images", "prompt"}
+                "actual_size", "quality", "n", "watermark", "reference_images", "mask", "prompt"}
 RUN_ONLY_KEYS = {"status", "saved", "size_mismatch", "skill_update_suggested"}
 
 work = Path(tempfile.mkdtemp(prefix="sidecar_"))
@@ -174,7 +174,8 @@ STUB = (
     "m.main()\n"
 )
 r = subprocess.run([sys.executable, "-c", STUB % (str(GEN), str(img), str(out))],
-                   capture_output=True, text=True, encoding="utf-8", timeout=120)
+                   capture_output=True, text=True, encoding="utf-8", timeout=120,
+                   env={**os.environ, "ARK_API_KEY": "test-key"})
 check("stubbed run exits 0", r.returncode == 0, r.stderr[-300:])
 
 side = out.with_suffix(".json")

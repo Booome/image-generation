@@ -59,6 +59,8 @@ def fake_get(url, headers=None, timeout=None):
 
 gen.requests.post = fake_post
 gen.requests.get = fake_get
+# Offline test: no provider is contacted, so no real credential should be needed.
+gen.read_env = lambda name: "test-key"
 
 fails = []
 

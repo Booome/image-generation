@@ -850,6 +850,7 @@ def main():
         "n": args.n,
         "watermark": (provider.get("extra_params") or {}).get("watermark"),
         "reference_images": [str(Path(p)) for p in args.image],
+        "mask": str(Path(args.mask)) if args.mask else None,
         "prompt": prompt,
     }
     written_sidecar = write_result(sidecar)
