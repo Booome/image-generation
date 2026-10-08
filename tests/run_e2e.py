@@ -49,7 +49,7 @@ def main():
 
     print("=== unit tests (offline) ===")
     for name in ("test_generate.py", "test_sizes.py", "test_assets.py", "test_contracts.py",
-                 "test_semantics.py", "test_hygiene.py"):
+                 "test_env.py", "test_semantics.py", "test_hygiene.py"):
         try:
             rc = subprocess.run([sys.executable, str(TESTS / name)],
                                 timeout=UNIT_TIMEOUT_S).returncode

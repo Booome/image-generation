@@ -29,6 +29,7 @@ python run_e2e.py --image <path> --keep-mask out.png
 | `test_sizes.py` | 7 个档位/显式尺寸 × 4 渠道：比例正确、规则合法、**被上限钳制时必须显式标注**；非法值一律拒绝且给出候选与"未发请求"声明 |
 | `test_assets.py` | `compress_refs`：base64 长度、`fit()` 收敛到预算、CLI 报告尺寸**等于写盘尺寸**、预算不可达时非零退出；`convert_assets_to_jpg`：只转该转的、默认保留原图、`--skip`、`--delete-originals`、`--dry-run`、软链接重指 |
 | `test_request.py` | 桩掉 `requests.post`：三种请求形态（multipart edits / JSON generations / JSON `image` 数组）的端点、字段、类型、SSE 与 `quality` 的有无 |
+| `test_env.py` | 环境 / 密钥 / 档案解析：`read_env` 优先级、keys 文件解析、profile frontmatter、`resolve_proxy`、`mask_proxy`、UTF-8 BOM 容错 |
 | `test_contracts.py` | 跨文件契约：每个 provider 有档案、PROVIDERS 字段被读取、scripts↔SKILL.md 一致、入库文件无真实用户路径 |
 | `test_semantics.py` | 既有语义回归：mask_editor 保存 alpha、bbox 阈值、generate exit code、`--size` 必填、compress/convert 默认行为 |
 | `test_hygiene.py` | 资源与清理：临时目录/工作区残留、端口释放、失败路径 exit 1 |

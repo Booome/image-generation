@@ -11,6 +11,7 @@ output_naming: "assets/scratch/YYYYMMDD-HHMMSS-<slug>.jpg"
 # python: ""
 # 出网 HTTP(S) 代理（可选），由 generate.py 自己读取。
 # 优先级：--proxy > 环境变量 IMAGE_GENERATION_PROXY > 本字段。
+# 不要在这里写带用户名/密码的代理——档案随工程入库；凭据类代理请走 $IMAGE_GENERATION_PROXY 或 --proxy。
 # 例：proxy: "http://127.0.0.1:20171"
 # proxy: ""
 ---

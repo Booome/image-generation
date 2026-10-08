@@ -11,6 +11,8 @@ output_naming: "assets/scratch/YYYYMMDD-HHMMSS-<slug>.jpg"
 # python: ""
 # Outbound HTTP(S) proxy for the scripts (optional). Read by generate.py itself.
 # Precedence: --proxy > $IMAGE_GENERATION_PROXY > this key.
+# Do NOT put credentials here - the profile is committed with the project;
+# use $IMAGE_GENERATION_PROXY or --proxy for authenticated proxies.
 # Example: proxy: "http://127.0.0.1:20171"
 # proxy: ""
 ---

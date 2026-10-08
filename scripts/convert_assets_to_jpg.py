@@ -2,13 +2,20 @@
 
 Kept deliberately dumb so the result is auditable:
   * only extensions listed in SRC_EXT are touched, never .jpg/.jpeg
-  * a sibling .jpg already holding the same pixels (same stem) is overwritten
+  * a sibling .jpg with the same stem is written/replaced only when it looks
+    like a product of this run or is newer than the source; a PRE-EXISTING older
+    .jpg is skipped unless --overwrite is passed
   * originals are left in place unless --delete-originals is passed
   * symlinks are re-pointed at the new .jpg (they are recreated locally)
 
+Each output line is tagged NEW (fresh .jpg), OVER (replaced an existing one) or
+SKIP. The overwrite guard is a heuristic: it compares mtimes, so a source whose
+mtime was refreshed by a sync tool, or an old .jpg that IS this .png's previous
+output, can be classified wrongly - hence the explicit --overwrite escape hatch.
+
 Usage:
     python convert_assets_to_jpg.py --root <asset-dir> [--quality 95] [--dry-run]
-                                    [--delete-originals] [--skip <dirname>]
+                                    [--overwrite] [--delete-originals] [--skip <dirname>]
 """
 import argparse
 import os
@@ -37,6 +44,8 @@ def main():
     ap.add_argument("--root", required=True)
     ap.add_argument("--quality", type=int, default=95)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--overwrite", action="store_true",
+                    help="replace a pre-existing older sibling .jpg (default: skip it)")
     ap.add_argument("--delete-originals", action="store_true")
     ap.add_argument("--skip", action="append", default=[], help="directory name to skip")
     args = ap.parse_args()
@@ -54,8 +63,20 @@ def main():
 
     total_in = total_out = 0
     converted = []
+    counts = {"new": 0, "overwrite": 0, "skipped": 0}
     for path in todo:
         dst = path.with_suffix(".jpg")
+        if dst.exists() and not args.overwrite:
+            try:
+                older = dst.stat().st_mtime < path.stat().st_mtime
+            except OSError:
+                older = True
+            if older:
+                counts["skipped"] += 1
+                print("  %-46s SKIP  (existing .jpg older than source; --overwrite to replace)"
+                      % str(path.relative_to(root)))
+                continue
+        status = "OVER" if dst.exists() else "NEW"
         try:
             with Image.open(path) as im:
                 im = ImageOps.exif_transpose(im)
@@ -63,6 +84,7 @@ def main():
                 if not args.dry_run:
                     rgb.save(dst, "JPEG", quality=args.quality, optimize=True, subsampling=0)
         except OSError as exc:
+            counts["skipped"] += 1
             print("  SKIP %-46s %s" % (path.name, exc))
             continue
 
@@ -71,14 +93,16 @@ def main():
         total_in += in_bytes
         total_out += out_bytes
         converted.append((path, dst, in_bytes, out_bytes, rgb.size))
-        print("  %-46s %6.2fMB -> %6.2fMB  %dx%d  %s" % (
+        counts["overwrite" if status == "OVER" else "new"] += 1
+        print("  %-46s %6.2fMB -> %6.2fMB  %dx%d  %s %s" % (
             str(path.relative_to(root)), in_bytes / 1048576,
             out_bytes / 1048576 if out_bytes else 0, rgb.size[0], rgb.size[1],
-            "DRY" if args.dry_run else ""))
+            status, "DRY" if args.dry_run else ""))
 
-    print("converted %d files: %.2fMB -> %.2fMB (%.0f%% smaller)" % (
+    print("converted %d files: %.2fMB -> %.2fMB (%.0f%% smaller)  [new %d / overwrite %d / skipped %d]" % (
         len(converted), total_in / 1048576, total_out / 1048576,
-        (1 - total_out / total_in) * 100 if total_in and total_out else 0))
+        (1 - total_out / total_in) * 100 if total_in and total_out else 0,
+        counts["new"], counts["overwrite"], counts["skipped"]))
 
     if args.delete_originals and not args.dry_run:
         removed = 0

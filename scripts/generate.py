@@ -237,12 +237,13 @@ def _read_keys_file(name):
     Lets a harness with no env-delivery mechanism pick up keys by copying one
     file. Path is $IMAGE_GENERATION_KEYS_FILE, defaulting to
     .image-generation/keys.env (relative to the working directory). Lines are
-    `NAME=VALUE` (no `export`); `#` starts a comment. Values are never echoed.
+    plain `NAME=VALUE` - an `export ` prefix is NOT stripped - and `#` starts a
+    comment. Values are never echoed. A UTF-8 BOM is tolerated.
     """
     path = os.environ.get("IMAGE_GENERATION_KEYS_FILE") or str(
         Path(".image-generation") / "keys.env")
     try:
-        text = Path(path).read_text(encoding="utf-8")
+        text = Path(path).read_text(encoding="utf-8-sig")
     except OSError:
         return ""
     for line in text.splitlines():
@@ -291,7 +292,7 @@ def _profile_frontmatter():
     the leading `--- ... ---` block, quotes stripped. Returns {} if absent.
     """
     try:
-        text = _profile_path().read_text(encoding="utf-8")
+        text = _profile_path().read_text(encoding="utf-8-sig").lstrip("\ufeff")
     except OSError:
         return {}
     if not text.startswith("---"):
@@ -323,6 +324,30 @@ def resolve_proxy(cli_value=None):
     if env:
         return env.strip()
     return _profile_frontmatter().get("proxy") or None
+
+
+def proxy_source(cli_value=None):
+    """Which source supplied the proxy: 'cli' | 'env' | 'profile' | None."""
+    if cli_value:
+        return "cli"
+    if os.environ.get("IMAGE_GENERATION_PROXY"):
+        return "env"
+    if _profile_frontmatter().get("proxy"):
+        return "profile"
+    return None
+
+
+def mask_proxy(url):
+    """Hide userinfo credentials in a proxy URL for display.
+
+    Keeps scheme/host/port (useful for debugging) but replaces any `user:pass@`
+    with `***:***@`, so credentials never reach the terminal, redirected logs,
+    or a host's command logs.
+    """
+    if not url:
+        return url
+    m = re.match(r"^([a-zA-Z][a-zA-Z0-9+.\-]*://)(?:[^@/]+@)(.+)$", url)
+    return m.group(1) + "***:***@" + m.group(2) if m else url
 
 
 def resolve_provider(name, model=None):
@@ -737,7 +762,7 @@ def main():
     proxy = resolve_proxy(args.proxy)
     proxies = {"http": proxy, "https": proxy} if proxy else None
     if proxy:
-        print(f"proxy: {proxy}", file=sys.stderr)
+        print(f"proxy: {mask_proxy(proxy)} (from {proxy_source(args.proxy)})", file=sys.stderr)
 
     api_key = read_env(provider["env_key"])
     if not api_key:

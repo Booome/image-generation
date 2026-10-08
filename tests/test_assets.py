@@ -5,6 +5,7 @@ Run: python tests/test_assets.py
 """
 import atexit
 import importlib.util
+import os
 import shutil
 import tempfile
 import subprocess
@@ -154,6 +155,21 @@ r = subprocess.run([sys.executable, str(SCRIPTS / "convert_assets_to_jpg.py"), "
                     "--dry-run"], capture_output=True, text=True, encoding="utf-8")
 check("dry-run writes nothing", sorted(p.name for p in tree3.rglob("*")) == before, before)
 check("dry-run still reports", "DRY" in r.stdout, r.stdout[-120:])
+
+print("--- convert_assets_to_jpg: overwrite protection ---")
+tree4 = TMP / "lib4"
+make_tree(tree4, {"a.png": ("RGB", (80, 60), (1, 2, 3))})
+old_jpg = tree4 / "a.jpg"
+old_bytes = b"pre-existing non-jpeg bytes, must survive"
+old_jpg.write_bytes(old_bytes)
+os.utime(old_jpg, (1, 1))  # older than a.png
+r = subprocess.run([sys.executable, str(SCRIPTS / "convert_assets_to_jpg.py"), "--root", str(tree4)],
+                   capture_output=True, text=True, encoding="utf-8")
+check("older same-stem .jpg skipped by default", old_jpg.read_bytes() == old_bytes and "SKIP" in r.stdout,
+      r.stdout[-140:])
+r = subprocess.run([sys.executable, str(SCRIPTS / "convert_assets_to_jpg.py"), "--root", str(tree4), "--overwrite"],
+                   capture_output=True, text=True, encoding="utf-8")
+check("--overwrite replaces it", old_jpg.read_bytes()[:2] == b"\xff\xd8", old_jpg.read_bytes()[:2])
 
 print("fails =", len(fails), fails)
 sys.exit(1 if fails else 0)

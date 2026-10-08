@@ -29,6 +29,7 @@ python run_e2e.py --image <path> --keep-mask out.png
 | `test_sizes.py` | 7 tiers/explicit sizes × 4 providers: ratio correct, rule legal, **must be explicitly annotated when clamped by the cap**; illegal values are always rejected with candidates and a "no request sent" declaration |
 | `test_assets.py` | `compress_refs`: base64 length, `fit()` converges to budget, CLI-reported size **equals the size written to disk**, non-zero exit when the budget is unreachable; `convert_assets_to_jpg`: converts only what should be converted, keeps originals by default, `--skip`, `--delete-originals`, `--dry-run`, symlink retargeting |
 | `test_request.py` | Stubs `requests.post`: endpoint, fields, types, and the presence/absence of SSE and `quality` for the three request shapes (multipart edits / JSON generations / JSON `image` array) |
+| `test_env.py` | env / keys / profile resolution: `read_env` precedence, keys-file parsing, profile frontmatter, `resolve_proxy`, `mask_proxy`, UTF-8 BOM tolerance |
 | `test_contracts.py` | Cross-file contracts: every provider has a profile, PROVIDERS fields are read, scripts↔SKILL.md consistency, no real user paths in committed files |
 | `test_semantics.py` | Existing semantics regressions: mask_editor saves alpha, bbox threshold, generate exit code, `--size` required, compress/convert default behavior |
 | `test_hygiene.py` | Resources and cleanup: leftover temp dirs/workspaces, port release, exit 1 on failure paths |
