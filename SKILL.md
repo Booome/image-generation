@@ -41,9 +41,9 @@ allowed-tools: Read, Write, Bash
    - 启动后它自己会尝试 `webbrowser.open()`；若当前环境拉不起浏览器（远程会话 / 沙箱 / 无 GUI），**把打印出来的 `http://127.0.0.1:<port>/` 交给用户手动打开**，不要因此判定失败；
    - 只监听 `127.0.0.1`，端口被占会自动退到 `port+1`。
 
-4. **输出编码**：第 1 层（脚本内 `configure_stdio()`）在任何 harness 下都成立；第 2 层（`opencode-windows-encoding` 插件）是 OpenCode 专属加分项，其他 harness 没有它不影响任何功能。
-5. **密钥投递**：`read_env()` 依次读「进程环境 → 工程侧 `.image-generation/keys.env`（可选）→ Windows 用户级注册表」。**以 `-NoProfile -NonInteractive` 启动 shell 的 harness（如 WorkBuddy / CodeBuddy）读不到交互式 shell（PowerShell profile）里 `$env:` 设的值**——这类 harness 需用宿主 env 机制（如 `settings.json` 的 `env`）、`keys.env` 或注册表投递；会加载 profile 的环境（如 OpenCode）则无此问题。**变量存在但值为空 = 未配置**。
-   - `keys.env` 为纯文本 `NAME=VALUE`（无 `export`，`#` 注释），默认路径 `.image-generation/keys.env`，可用环境变量 `IMAGE_GENERATION_KEYS_FILE` 改路径；**该文件不要入库**。
+4. **输出编码**：两层策略（脚本自愈 + OpenCode 可选插件）见「工作流程」第 4 步；核心是脚本自带第 1 层自愈，任何 harness 下都成立。
+5. **密钥投递**：`read_env()` 依次读「进程环境 → Windows 用户级注册表 → 工程侧 `.image-generation/keys.env`（可选，最后兜底）」。**以 `-NoProfile -NonInteractive` 启动 shell 的 harness（如 WorkBuddy / CodeBuddy）读不到交互式 shell（PowerShell profile）里 `$env:` 设的值**——这类 harness 需用宿主 env 机制（如 `settings.json` 的 `env`）、`keys.env` 或注册表投递；会加载 profile 的环境（如 OpenCode）则无此问题。**变量存在但值为空 = 未配置**。
+   - `keys.env` 为纯文本 `NAME=VALUE`（无 `export`，`#` 注释），默认路径 `.image-generation/keys.env`（**相对当前工作目录**；建议用环境变量 `IMAGE_GENERATION_KEYS_FILE` 显式指定绝对路径）；**该文件不要入库**。
 6. **超时对齐**：`generate.py --timeout` 默认 240s（sync-JSON 厂商要等整张图生成完），而多数 harness 的前台命令默认超时更短（如 WorkBuddy 约 120s）——**sync-JSON 厂商一律以后台任务方式跑**，或把宿主的命令超时调到 ≥300s，否则前台拿不到结果、需另行轮询。
 
 ## 工作流程
@@ -69,15 +69,15 @@ allowed-tools: Read, Write, Bash
    - **第 1 层 · 脚本自愈（自带，任何机器、任何宿主、不装任何东西都成立）**：`generate.py` 用 `configure_stdio()` 自判断——**显式设了 `PYTHONIOENCODING` / `PYTHONUTF8` 就按它来**；**交互式控制台不动**（Windows 走 `WriteConsoleW`，Unix 本就 UTF-8）；**管道输出默认 UTF-8**（宿主 locale 只是本机偏好、不是消费者的契约，故不继承）。**不改动任何系统或宿主设置（代码页 / locale / profile / 环境变量一律不碰）**。→ 在**没装插件的陌生机器**上，中文报错与结果 JSON 同样正确。
    - **第 2 层 · 宿主侧（可选加分项，不假设它存在）**：若恰好运行在**装了 `opencode-windows-encoding@5.0.0` 的 opencode** 里，它会给每条 bash 命令注入 UTF-8，使**调用方 shell 自己打印的中文**（`Get-ChildItem` 出来的中文文件名等）也正常——**这层 Python 管不到**。**没有它不影响本 skill 任何功能**，只是没人兜这最后一层。（`opencode-windows-encoding` 是 **OpenCode 可选**加成，其他 harness 无需关心。）
    - **两层兼容**：插件注入 `PYTHONIOENCODING=utf-8` 时 `configure_stdio()` 走早退，结果仍为 UTF-8（实测共存无冲突）。
-   - 每单同时落盘 `<输出名>.result.json`（UTF-8），控制台万一被宿主编码破坏时以该文件为准。
+   - 每单同时落盘 `<输出名>.json`（与 `--out` 同名、扩展名换成 `.json`；UTF-8），控制台万一被宿主编码破坏时以该文件为准。
 
-   `--size` 接受 `WIDTHxHEIGHT` 或口语档位（`3:2 1K`、`4K 3:2`——短边=1024×K、精确比例、16 倍数、超限自动钳制并回显；**`auto` 被硬禁**）。**`WIDTHxHEIGHT` 只做长边/比例/像素窗校验，不做 16 倍数校验——奇数边长（如 infistar 实测的 `1672x941`）直接原样交给 API 判断**；档位换算仍按 16 倍数步长算出整齐尺寸。`--quality` 默认 `high`（heyroute 白名单必传项；模型若在 `models` 覆盖表声明 `default_quality: null` 则整条省略）。参考图传递：无 `--image` 走 generations；带 `--image` 默认走 edits（多图重复 `image` 字段），**模型若声明 `edit_format: json_images`（如 seedream）则改为把参考图以 base64 放进 generations 的 JSON `images` 数组**。**需要 mask 局部重绘时**：先运行 `"<PYTHON>" "<SKILL_ROOT>/scripts/mask_editor.py" --image <主体图> --out <mask.png>`（**后台启动**，见「宿主适配」第 3 条）弹出浏览器窗口，用矩形/椭圆/画笔/橡皮绘制重绘区（红色显示、羽化导出），保存后文件即为该单 mask；**每单的 mask 必须基于当单主体图重新生成/确认，并把可视化 check 展示给用户**（`json_images` 厂商不支持 mask，脚本会报错）。API key 读该厂商的环境变量（见档案）。**协议细节与官方参考实现见 `references/providers/heyroute.md` 与官方仓库 `github.com/heyroute-ai/skills`。**
+   `--size` 接受 `WIDTHxHEIGHT` 或口语档位（`3:2 1K`、`4K 3:2`——短边=1024×K、精确比例、16 倍数、超限自动钳制并回显；**`auto` 被硬禁**）。**`WIDTHxHEIGHT` 只做长边/比例/像素窗校验，不做 16 倍数校验——奇数边长（如 infistar 实测的 `1672x941`）直接原样交给 API 判断**；档位换算按各 provider 的 `edge_multiple` 步长取整（seedream 系为 `None`，不取整）。`--quality` 默认 `high`（heyroute 白名单必传项；provider 顶层或 `models` 覆盖表声明 `default_quality: null` 则整条省略）。参考图传递：无 `--image` 走 generations；带 `--image` 默认走 edits（多图重复 `image` 字段），**模型若声明 `edit_format: json_images`（如 seedream）则改为把参考图以 base64 放进 generations 的 JSON `image`/`images` 数组（字段名由 provider 的 `ref_field` 决定）**。**需要 mask 局部重绘时**：先运行 `"<PYTHON>" "<SKILL_ROOT>/scripts/mask_editor.py" --image <主体图> --out <mask.png>`（**后台启动**，见「宿主适配」第 3 条）弹出浏览器窗口，用矩形/椭圆/多边形/画笔/橡皮绘制重绘区（红色显示、羽化导出），保存后文件即为该单 mask；**每单的 mask 必须基于当单主体图重新生成/确认，并把可视化 check 展示给用户**（`json_images` 厂商不支持 mask，脚本会报错）。API key 读该厂商的环境变量（见档案）。**协议细节与官方参考实现见 `references/providers/heyroute.md` 与官方仓库 `github.com/heyroute-ai/skills`。**
 
 5. **交付核对**：读回图片，对照提示词必要项与禁令逐项核对（开合方式、比例、禁物），连同**实际分辨率**回报。**任何错误/不符（分辨率偏差、流超时、连接失败等）：先向用户报告并等处理指示，绝不自作主张回写或重试**；仅当用户确认属**确定性问题**（可复现、已证实的模式）时，才把结论记入厂商档案「已知问题」——随机/偶发问题不记录。
 
-## 参数硬规则（heyroute / gpt-image-2 实测 + 官方 skill）
+## 协议要点（以厂商档案为准）
 
-`size` 必须是 `auto` 或 `WIDTHxHEIGHT`：两边均为 16 的倍数、最长边 ≤ 3840、宽高比 ≤ 3:1、总像素 655360–8294400。常用档：`1024x1024`、`1536x1024`、`2880x2880`、`3840x2160`（4K 横）。`n` 只支持 1；`quality`（low/medium/high/auto）与 `stream=true` 必传（本 skill 默认 high）。响应为固定 SSE（started→heartbeat→completed|error→done），业务错误看 `error` 事件；**成功后断流仍扣费，必须读完流**；失败自动退费。探针不乱用：SSE 前参数错误不计费，但宽松参数可能直接开始生成计费。
+各厂商的 size 规则 / 响应协议 / 扣费 / 特有参数，**一律以 `references/providers/<厂商>.md` 与脚本 `check_size_or_die` 为准**，本文件不复述数值。通用铁律：**`auto` 硬禁**、**不做 16 倍数校验**（本地只查长边/比例/像素窗）、分辨率不合规只报错+推荐不自动改、一切计费调用先确认。heyroute 的固定 SSE、断流仍扣费等细节见 `references/providers/heyroute.md`。
 
 ## 参考文件
 
@@ -86,29 +86,30 @@ allowed-tools: Read, Write, Bash
 | `references/prompt-checklist.md` | 提示词八段清单 + 已定决策查证来源 | 每次准备提示词时 |
 | `references/coordinate-edit.md` | Seedream 交互编辑：坐标写法（`Image N x1 y1 x2 y2`，归一化 0–999）、mask_editor+bbox_from_mask 流程、实测能力边界（擅长替换/重绘、不擅长等比缩放） | 需要对已生成图做局部修改时 |
 | `references/providers/<厂商>.md` | 厂商档案：文档位置、认证、端点、模型表、size 规则、响应格式、已知问题、特有参数 | 下单前必读当前厂商档案 |
+| `references/profile.example.md` | 工程档案中性示例（默认值 / 画风 / 负向词 / 决策来源 / 解释器） | 建工程档案 `.image-generation/profile.md` 时 |
 
 **同目录 `scripts/` 五件套**：
 
 | 脚本 | 用途 | 何时跑 |
 |---|---|---|
-| `generate.py` | 下单出图（generations / edits，多厂商统一入口）。**落盘格式跟 `--out` 扩展名：`.png` 才出 PNG，其余（含无扩展名）统一写 JPEG q95** | 工作流程第 4 步 |
+| `generate.py` | 下单出图（generations / edits，多厂商统一入口）。**落盘格式跟 `--out` 扩展名：`.png` 才出 PNG，其余（含无扩展名）写 JPEG（默认 q95，`--jpeg-quality` 可调；带 alpha 的源回退写 PNG）** | 工作流程第 4 步 |
 | `mask_editor.py` | 浏览器里画重绘蒙版：**多选区可叠加**（矩形/椭圆/**多边形**/画笔/橡皮都是独立选区，右侧列表可点选、单独删除，`Ctrl+Z` 逐步撤销；多边形单击落点、双击闭合、Backspace 退点、Esc 放弃）、比例锁（1:1 / 4:3 / 3:2 / 16:9 / 21:9）、拖手柄改尺寸、拖框内移动、数值输入、方向键微调（框 / 手柄双目标）、缩放平移 | 需要 mask 局部重绘，或要框一个区域取坐标时 |
 | `bbox_from_mask.py` | 蒙版 PNG → 归一化 `0–999` 坐标 | 画完蒙版要写进 Seedream 坐标编辑时 |
 | `compress_refs.py` | 把参考图压到 base64 上传预算（默认 6MB），压完再 `--image` 传 | 走 JSON base64 通道（apiyi / seedream）且参考图体积偏大时 |
 | `convert_assets_to_jpg.py` | 图片库批量转高质量 JPEG（`--dry-run` / `--delete-originals` / 自动重指软链接） | 库里攒了非 JPG 图想统一瘦身时 |
 
-**改了 `scripts/` 或 `tests/` 之后先跑测试**：`"<PYTHON>" "<SKILL_ROOT>/tests/run_e2e.py"` —— 先跑**离线单测**（`test_generate` / `test_sizes` / `test_assets` / `test_request` / `test_contracts` / `test_semantics` / `test_hygiene`，零网络零费用），再跑**无头 Chromium** 的交互断言 + 蒙版像素校验 + `bbox_from_mask.py` 集成；只想跑离线那半可用 `--unit-only`，只想验"测试真的能失败"可用 `"<PYTHON>" "<SKILL_ROOT>/tests/mutation_check.py"`。首次需 `cd "<SKILL_ROOT>/tests" && npm install && npx playwright install chromium`，详见 `tests/README.md`。
+**改了 `scripts/` 或 `tests/` 之后先跑测试**：`"<PYTHON>" "<SKILL_ROOT>/tests/run_e2e.py"` —— 先跑**离线单测**（零网络零费用；完整清单见 `tests/README.md`），再跑**无头 Chromium** 的交互断言 + 蒙版像素校验；`--unit-only` 只跑离线那半，验"测试真的能失败"用 `"<PYTHON>" "<SKILL_ROOT>/tests/mutation_check.py"`；浏览器半场首次需 `cd "<SKILL_ROOT>/tests" && npm install && npx playwright install chromium`。
 
 ## 未覆盖功能与新增厂商
 
 **新功能**（新参数/新端点/新模型行为）：查当前厂商档案「文档位置」节（帮助中心 URL + `/v1/models` 自描述 + 非法参数探针不计费）→ 结论**回写该厂商档案** → 能固化成逻辑的回写 `generate.py` → 再执行。
 
 **新厂商**三步：
-1. 复制 `references/providers/heyroute.md` 结构新建 `references/providers/<厂商>.md`（固定小节：文档位置 / 认证与端点 / 参数白名单 / 模型表 / **size 规则与官方常用档** / 响应格式 / 扣费 / 已知问题 / 特有参数）；
+1. 复制 `references/providers/_template.md` 新建 `references/providers/<厂商>.md`（固定小节：文档位置 / 认证与端点 / 参数白名单 / 模型表 / **size 规则与官方常用档** / 响应格式 / 扣费 / 已知问题 / 特有参数；`Error Reference` 为可选节）；
 2. 在 `generate.py` 的 `PROVIDERS` 注册表加条目（base、env_key、端点路径、edit_format、response、size_rules、**common_sizes 官方常用档**）；size 规则不同则在 `SIZE_RULES` 加规则集；**同一网关上的模型族契约不同时**（size 规则 / 是否支持 `quality` / 参考图传递方式 / 特有参数）**不新开 provider**，改在该 provider 的 `models: {<model>: {...}}` 覆盖表登记（`resolve_provider` 负责合并；如 `infistar` 下的 `doubao-seedream-5-0-260128`）；
 3. 用该厂商最小参数单（1K 单图）验证一次——**同样先列参数表获用户确认**，把实测写回档案。
 
-**跨厂商铁律**：分辨率不合规 → 报错点 + 临近推荐 + 等用户选，不自动替换；一切计费调用先确认。未建档厂商/未定义 size 规则 → 拒绝下单，先建档。
+**跨厂商铁律**：未建档厂商 / 未定义 size 规则 → 拒绝下单，先建档；分辨率不合规与计费确认见「工作流程」第 3 步与核心规则 1。
 
 ## 核心规则
 
@@ -119,8 +120,8 @@ allowed-tools: Read, Write, Bash
 5. **如实回报**：实际分辨率、核对偏差必须报告。
 6. **花费意识**：默认 size 取工程档案 `.image-generation/profile.md` 的 `default_size`（无档案或未配置则不设默认）；分辨率/张数越高越贵，**一律不得擅自升档**——包括"为了更清晰""为了补细节""底图更大"这类看起来合理的理由，**都必须先向用户单独提出并获同意**。**禁止批量测试**。
 7. **比例/几何修正走 mask 局部编辑**：纯文字比例锁已 0/9 失效——修比例用 `--mask` 圈区 + 几何指令，**渐进迭代**（每轮重复不变量+禁止回弹）；`edits` 的 `size` 必须显式匹配输入画幅（`auto` → 1:1 方图，已实测）。
-8. **坐标框选编辑（Seedream）+ 多选区蒙版**：`mask_editor.py` 支持**多个选区叠加**——矩形/椭圆/画笔**各自成为独立选区**（`S.items`），可**点击选中**（画布或右侧「选区列表」）、按 `Delete` 或点「删除选中」删掉单个选区、`Ctrl+Z` 多步撤销；画笔与橡皮也是可选中的独立项（橡皮用 `destination-out` 扣掉先前的选区）。导出的蒙版仍是**黑白位图并集**，下游 `--mask`/`bbox_from_mask.py` 无感。对**已生成图**做局部修改时，用矩形框选 + `bbox_from_mask.py` 取归一化坐标，把 `Image N x1 y1 x2 y2` 写进 prompt（详见 `references/coordinate-edit.md`）。**该能力擅长"区域内替换/重绘"，不擅长"精确等比缩放"**——要精确缩放走合成法。**多个不连续区域要一起重绘时，就用多选区**（如"兽的旧位置 + 新落位"两块）。
-9. **独立任务原则（提示词禁引生成历史）**：生图模型**没有上下文**——它只知道本单传进去的图和这段提示词。提示词里**禁止任何引用先前生成的措辞**（"在此基础上""再缩小一些""继续改""上次那版""已经高清化好的"……），因为它们对模型**毫无意义**，还会让它按自己的理解乱动。每单都按**第一次见到图 1** 来描述：**画面里现在是什么样 → 要改成什么样**。要表达"比上一版更小"，只能换算成本单的**绝对比例**（例："把它缩到当前大小的**一半**"，其中"当前"指**本单输入图**里的它，而非历史上的某版）。
+8. **坐标框选编辑（Seedream）+ 多选区蒙版**：`mask_editor.py` 支持多选区（矩形/椭圆/多边形/画笔/橡皮，可点选/单删/多步撤销，导出为黑白位图并集，下游 `--mask`/`bbox_from_mask.py` 无感）——能力清单见 `scripts/` 表与 `references/coordinate-edit.md`。对已生成图做局部修改：矩形框选 + `bbox_from_mask.py` 取归一化坐标，把 `Image N x1 y1 x2 y2` 写进 prompt。**擅长"区域内替换/重绘"，不擅长"精确等比缩放"**（要精确缩放走合成法）。
+9. **独立任务原则（提示词禁引生成历史）**：生图模型没有上下文，提示词里**禁止任何引用先前生成的措辞**（"在此基础上""再缩小一些""上次那版"…），也不写"生成一张…/以图X为依据"这类生成行为叙述——只描述**本单输入图**里"现在是什么样 → 要改成什么样"。详见 `references/prompt-checklist.md`「两条提示词纪律」。
 10. **输出命名**：按工程档案 `.image-generation/profile.md` 的 `output_naming` 生成 `--out`；无档案或未配置时建议时间戳前缀写成 `YYYYMMDD-HHMMSS-<简短说明>.jpg`（如 `20260929-143012-move-01.jpg`），**文件名排序即可定位最新一单**。下单前用当前时间生成前缀，不要沿用上单文件名。
 11. **编辑一律优先用 `--mask`**：凡是"改局部、保其余"的编辑（尤其**连续多轮迭代**），必须优先使用 `--mask`——**普通 edits 是整幅重绘，多轮会让背景逐轮劣化**（已实测）。mask 的"透明区=重绘、不透明区=像素级保留"是**背景不被过水的唯一手段**。用户已明确此后编辑尽量加 mask。
 12. **画风段按场景判定**：**从零生图 / 重绘式放大（高清化）/ 换姿态换外观 / 多图合成**这四类**必写**画风段；纯蒙版局部重绘与轻微编辑可省（底图自带画风）。画风段只写**渲染语言 + 光照与饱和度基调 + 负向**，**不写材质**（随素材变化，写进各自提示词）、**不做统一色卡**（颜色以参考图为准）。模板与判定表见 `references/prompt-checklist.md` 第 5 段。

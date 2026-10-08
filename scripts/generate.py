@@ -25,7 +25,7 @@ PROVIDERS = {
         "default_quality": "high",
         "n_max": 1,
         "size_rules": "pixel_window",  # success value 3520x2336 satisfies this window; see providers/infistar.md
-        "common_sizes": ["1024x1024", "1536x1024", "1024x1536"],
+        "common_sizes": ["1024x1024", "1536x1024", "1024x1536", "3520x2336"],
         "doc": "references/providers/infistar.md",
         # Per-model overrides: a model family on the same gateway can differ in
         # size contract, quality support, ref-passing format and extra params.
@@ -78,7 +78,7 @@ PROVIDERS = {
         "warn_ref_bytes": 6 * 1024 * 1024,
         "max_ref_bytes": 20 * 1024 * 1024,
         "size_rules": "seedream_lite_px",
-        "common_sizes": ["2048x2048", "4096x2304", "3744x2496", "2560x1440"],
+        "common_sizes": ["2048x2048", "3072x3072", "4096x2304", "3744x2496", "2560x1440"],
         "extra_params": {
             "watermark": False,
             "output_format": "png",
@@ -112,7 +112,7 @@ PROVIDERS = {
         "n_max": 1,
         "max_refs": 10,
         "size_rules": "seedream_pro_px",
-        "common_sizes": ["2048x2048", "2496x1664", "2816x1584", "2048x1152", "1024x1024"],
+        "common_sizes": ["2048x2048", "2496x1664", "2816x1584", "3136x1344", "2048x1152", "1024x1024"],
         "extra_params": {"watermark": False, "response_format": "url"},
         "preflight_path": "/models",
         "doc": "references/providers/volcengine.md",
@@ -256,7 +256,7 @@ def _read_keys_file(name):
 
 
 def read_env(name):
-    """Read an env var: process env -> optional keys file -> Windows User registry.
+    """Read an env var: process env -> Windows User registry -> optional keys file.
 
     User-scope registry variables are not inherited by already-running hosts, so
     the registry fallback makes keys persisted via
@@ -686,7 +686,7 @@ def main():
 
     api_key = read_env(provider["env_key"])
     if not api_key:
-        die(f"{provider['env_key']} is not set (process env or Windows User env)")
+        die(f"{provider['env_key']} is not set (process env, keys file, or Windows User env)")
 
     if args.prompt_file:
         try:

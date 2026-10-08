@@ -1,8 +1,7 @@
 # Provider Profile · HeyRoute
 **English** | [中文](heyroute.zh-CN.md)
 
-> Fixed sections for a single-provider profile: document locations / authentication and endpoints / parameter allowlist / model table / size rules / response protocol / billing / known issues / provider-specific parameters.
-> To add a provider, copy this structure to `references/providers/<provider>.md` and register it under `PROVIDERS` in `scripts/generate.py`.
+> Section structure and how-to-add: see [`_template.md`](_template.md).
 
 ## Document Locations
 
@@ -110,7 +109,7 @@ Reference: the infinite-canvas project's 3:2 4K tier is `3520x2336` (legal as a 
 
 ## Known Issues
 
-- **[PENDING] Measured pattern for high-resolution tiers (2026-09-23, gpt-image-2 + quality=high + stream)**:
+- **[Confirmed] Measured pattern for high-resolution tiers (2026-09-23, gpt-image-2 + quality=high + stream)**:
   | Requested size | Result | Duration |
   |---|---|---|
   | `3504x2336` (3:2 4K conversion) | downgraded, actually returns 1536x1024 (twice) | ~40s |

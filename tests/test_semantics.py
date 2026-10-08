@@ -1,8 +1,5 @@
 """第 8 轮：既有语义有无被我这几轮改动悄悄改掉（行为回归）。"""
-import argparse
 import importlib.util
-import numpy as np
-import io
 import atexit
 import shutil
 import subprocess
@@ -78,9 +75,6 @@ print("=== 5) compress_refs 的文件名去重语义没变 ===")
 cr = load("compress_refs")
 d = work / "cr"
 d.mkdir()
-for n in ("a.png", "a.jpg"):
-    pass
-imgs = []
 for name in ("same.png", "same.jpg"):
     p = d / name
     Image.new("RGB", (60, 40), (9, 9, 9)).save(p)

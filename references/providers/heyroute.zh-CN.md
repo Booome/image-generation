@@ -1,8 +1,7 @@
 # 厂商档案 · HeyRoute
 [English](heyroute.md) | **中文**
 
-> 单厂商档案固定小节：文档位置 / 认证与端点 / 参数白名单 / 模型表 / size 规则 / 响应协议 / 扣费 / 已知问题 / 特有参数。
-> 新增厂商复制本结构为 `references/providers/<厂商>.md`，并在 `scripts/generate.py` 的 `PROVIDERS` 注册。
+> 小节结构与新增指引见 [`_template.md`](_template.md)。
 
 ## 文档位置
 
@@ -110,7 +109,7 @@
 
 ## 已知问题
 
-- **[PENDING] 高分辨率档实测模式（2026-09-23，gpt-image-2 + quality=high + stream）**：
+- **[已证实] 高分辨率档实测模式（2026-09-23，gpt-image-2 + quality=high + stream）**：
   | 请求 size | 结果 | 耗时 |
   |---|---|---|
   | `3504x2336`（3:2 4K 换算） | 降级实返 1536x1024（两次） | ~40s |

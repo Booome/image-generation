@@ -1,7 +1,7 @@
 # 厂商档案 · APIYi（Seedream 渠道）
 [English](apiyi.md) | **中文**
 
-> 单厂商档案固定小节：文档位置 / 认证与端点 / 参数白名单 / 模型表 / size 规则 / 响应协议 / 扣费 / 已知问题 / 特有参数。
+> 小节结构与新增指引见 [`_template.md`](_template.md)。
 > 建档（2026-09-25）：来源＝官方文档（docs.apiyi.com）+ `GET /v1/models` 实测；**尚未**经真实出图验证。
 
 ## 文档位置

@@ -58,7 +58,7 @@ cp <skills-dir>/image-generation/references/profile.example.md .image-generation
 
 ```bash
 export HEYROUTE_API_KEY=...
-python scripts/generate.py \
+"<PYTHON>" "<SKILL_ROOT>/scripts/generate.py" \
   --provider heyroute \
   --model gpt-image-2 \
   --size "16:9 1K" \
@@ -67,7 +67,7 @@ python scripts/generate.py \
   --out out.jpg
 ```
 
-`--provider` 与 `--size` 均为必填（CLI 层必填；工作流默认值可来自工程档案）。查看全部参数：`python scripts/generate.py --help`。
+`--provider` 与 `--size` 均为必填（CLI 层必填；工作流默认值可来自工程档案）。查看全部参数：`"<SKILL_ROOT>/scripts/generate.py" --help`。
 
 ## 支持的厂商
 
@@ -97,9 +97,9 @@ tests/          离线单测 + 浏览器 E2E + mutation 守门器 + fixtures
 ## 测试
 
 ```bash
-python tests/run_e2e.py --unit-only      # 离线单测（零网络零费用）
-python tests/run_e2e.py                  # 追加浏览器 E2E（需 Playwright）
-python tests/mutation_check.py           # 变异测试，验证套件真的会失败（较慢）
+"<SKILL_ROOT>/tests/run_e2e.py" --unit-only   # 离线单测（零网络零费用）
+"<SKILL_ROOT>/tests/run_e2e.py"               # 追加浏览器 E2E（需 Playwright）
+"<SKILL_ROOT>/tests/mutation_check.py"        # 变异测试，验证套件真的会失败（较慢）
 ```
 
 ## License

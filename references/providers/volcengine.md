@@ -1,7 +1,7 @@
 # Provider Profile · Volcengine Ark
 **English** | [中文](volcengine.zh-CN.md)
 
-> Fixed sections of a single-provider profile: Documentation Location / Authentication and Endpoints / Parameter Allowlist / Model Table / Size Rules / Response Protocol / Billing / Known Issues / Provider-Specific Parameters.
+> Section structure and how-to-add: see [`_template.md`](_template.md).
 > Created (2026-09-25): sources = official docs + live `GET /api/v3/models` measurements (135 models); integrated and validated with image generation (see "Known Issues").
 
 ## Documentation Location

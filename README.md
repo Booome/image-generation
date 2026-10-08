@@ -29,7 +29,7 @@ It can also be imported as a git submodule.
 
 ## Host adaptation
 
-This skill was originally authored for OpenCode. Other harnesses differ in ways that silently break it: the working directory is the **project root** rather than the skill directory, and the shell is an external process. Harnesses that launch their shells with `-NoProfile -NonInteractive` (WorkBuddy / CodeBuddy) do not see keys exported by your interactive shell — deliver them via the host's env mechanism, a `.image-generation/keys.env` file, or the Windows user-level registry.
+This skill was originally authored for OpenCode. Other harnesses differ in ways that silently break it: the working directory is the **project root** rather than the skill directory, and the shell is an external process. Harnesses that launch their shells with `-NoProfile -NonInteractive` (WorkBuddy / CodeBuddy) do not see keys exported by your interactive shell — deliver them via the host's env mechanism, a `.image-generation/keys.env` file, or the Windows user-level registry. (Environments that do load the profile, e.g. OpenCode, are unaffected.)
 
 See the **Host adaptation** section in `SKILL.md` for the concrete rules (absolute script paths, interpreter resolution, key delivery, backgrounding the mask editor) before troubleshooting "it works in my terminal but not in the agent".
 
@@ -40,7 +40,7 @@ The generic library contains only neutral defaults. Put your project-specific co
 ```bash
 mkdir -p .image-generation
 cp <skills-dir>/image-generation/references/profile.example.md .image-generation/profile.md
-# 编辑 .image-generation/profile.md
+# edit .image-generation/profile.md
 ```
 
 - The profile is committed with the **project**, independent of where the skill is installed, and is not overwritten by skill updates.
@@ -58,7 +58,7 @@ First set the API key environment variable for the corresponding provider (see t
 
 ```bash
 export HEYROUTE_API_KEY=...
-python scripts/generate.py \
+"<PYTHON>" "<SKILL_ROOT>/scripts/generate.py" \
   --provider heyroute \
   --model gpt-image-2 \
   --size "16:9 1K" \
@@ -67,7 +67,7 @@ python scripts/generate.py \
   --out out.jpg
 ```
 
-`--provider` and `--size` are both required (required at the CLI layer; workflow defaults may come from the project profile). To view all parameters: `python scripts/generate.py --help`.
+`--provider` and `--size` are both required (required at the CLI layer; workflow defaults may come from the project profile). To view all parameters: `"<SKILL_ROOT>/scripts/generate.py" --help`.
 
 ## Supported providers
 
@@ -87,19 +87,19 @@ Image generation is **billed**. This skill's workflow enforces "first list the c
 ## Directory structure
 
 ```
-SKILL.md        agent 读取的入口（工作流 + 核心规则）
-references/     提示词清单、坐标编辑、厂商档案、项目档案示例
-scripts/        generate.py（下单）、mask_editor.py（蒙版）、bbox_from_mask.py、
-                compress_refs.py、convert_assets_to_jpg.py
-tests/          离线单测 + 浏览器 E2E + mutation 守门器 + fixtures
+SKILL.md        agent entry (workflow + core rules)
+references/     prompt checklist, coordinate editing, provider profiles, project-profile example
+scripts/        generate.py (ordering), mask_editor.py (mask), bbox_from_mask.py,
+                compress_refs.py, convert_assets_to_jpg.py
+tests/          offline unit tests + browser E2E + mutation gate + fixtures
 ```
 
 ## Tests
 
 ```bash
-python tests/run_e2e.py --unit-only      # 离线单测（零网络零费用）
-python tests/run_e2e.py                  # 追加浏览器 E2E（需 Playwright）
-python tests/mutation_check.py           # 变异测试，验证套件真的会失败（较慢）
+"<SKILL_ROOT>/tests/run_e2e.py" --unit-only   # offline unit tests (no network, no cost)
+"<SKILL_ROOT>/tests/run_e2e.py"               # adds browser E2E (needs Playwright)
+"<SKILL_ROOT>/tests/mutation_check.py"        # mutation test, proves the suite can fail (slow)
 ```
 
 ## License

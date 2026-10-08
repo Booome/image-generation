@@ -74,7 +74,7 @@ def main():
     ap = argparse.ArgumentParser(description="Compress reference images to a base64 upload budget")
     ap.add_argument("images", nargs="+", help="input image paths")
     ap.add_argument("--out-dir", default=None,
-                    help="output directory (default: <temp>/opencode/refs)")
+                    help="output directory (default: <temp>/image-generation/refs)")
     ap.add_argument("--max-edge", type=int, default=2048, help="long-edge cap (never upscales)")
     ap.add_argument("--quality", type=int, default=90, help="starting JPEG quality")
     ap.add_argument("--target-bytes", type=int, default=6 * 1024 * 1024,
@@ -91,7 +91,7 @@ def main():
         if not p.exists():
             sys.exit(f"image not found: {p}")
 
-    out_dir = Path(args.out_dir) if args.out_dir else Path(tempfile.gettempdir()) / "opencode" / "refs"
+    out_dir = Path(args.out_dir) if args.out_dir else Path(tempfile.gettempdir()) / "image-generation" / "refs"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     loaded = [load_rgb(p, args.max_edge) for p in paths]

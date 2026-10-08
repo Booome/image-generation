@@ -1,8 +1,8 @@
 # Provider Profile · Infistar
 **English** | [中文](infistar.zh-CN.md)
 
-> Fixed sections for a single-provider profile: doc location / authentication & endpoint / parameter allowlist / model table / size rules / response format / billing / known issues / provider-specific parameters.
-> Copy this structure when adding a provider; this profile was built manually (2026-09-23), sources = live API probes + user success cases. Latest live update: **2026-09-28** (`gpt-image-2.5-sunburst` image edit).
+> Section structure and how-to-add: see [`_template.md`](_template.md).
+> This profile was built manually (2026-09-23), sources = live API probes + user success cases. Latest live update: **2026-09-28** (`gpt-image-2.5-sunburst` image edit).
 
 ## Doc Location
 

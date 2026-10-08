@@ -162,6 +162,26 @@ for tf in sorted((SK / "tests").glob("test_*.py")):
     if "mkdtemp" in body and "atexit" not in body:
         hard.append("%s 用了 mkdtemp 但没注册回收（会往 %%TEMP%% 堆垃圾）" % tf.name)
 
+print("=== 9) 双语文档成对且互链（EN 主 + *.zh-CN）===")
+if repo is None:
+    print("  [skip] 非 git 工作树，跳过")
+else:
+    pairs = 0
+    for f in tracked:
+        if not f.endswith(".zh-CN.md"):
+            continue
+        zh = repo / f
+        en = zh.with_name(zh.name[: -len(".zh-CN.md")] + ".md")
+        pairs += 1
+        if not en.exists():
+            hard.append("双语缺 EN 主文件: %s" % f)
+            continue
+        if en.name not in zh.read_text(encoding="utf-8"):
+            hard.append("%s 未链接回 %s" % (f, en.name))
+        if zh.name not in en.read_text(encoding="utf-8"):
+            hard.append("%s 未链接到 %s" % (en.name, zh.name))
+    print("  双语对: %d" % pairs)
+
 for i in info:
     print("  [info] " + i)
 for h in hard:

@@ -26,7 +26,7 @@ print("=== 1) 测试是否在 %TEMP% 堆积（run 完应自清）===")
 # so calling it here would recurse forever.
 before = {p for p in Path(tempfile.gettempdir()).glob("*") if p.is_dir()}
 r = subprocess.run([sys.executable, str(TESTS / "test_generate.py")],
-                   capture_output=True, text=True, encoding="utf-8", cwd=str(REPO))
+                   capture_output=True, text=True, encoding="utf-8", cwd=str(REPO), timeout=120)
 after = {p for p in Path(tempfile.gettempdir()).glob("*") if p.is_dir()}
 leaked = sorted(p.name for p in (after - before))
 print("  test_generate.py exit =", r.returncode)
@@ -63,7 +63,7 @@ _out = _fail_dir / "o.jpg"
 r = subprocess.run([sys.executable, str(SK / "scripts" / "generate.py"), "--provider", "heyroute",
                     "--model", "gpt-image-2", "--size", "16:9 1K", "--prompt", "x",
                     "--image", str(_missing), "--out", str(_out)],
-                   capture_output=True, text=True, encoding="utf-8")
+                   capture_output=True, text=True, encoding="utf-8", timeout=120)
 combined = (r.stdout or "") + (r.stderr or "")
 if "Traceback" in combined:
     note("失败路径抛了裸 traceback")
@@ -76,7 +76,7 @@ print("=== 5) mutation_check 的临时副本是否清干净（慢，默认跳过
 if os.environ.get("RUN_MUTATION_HYGIENE") == "1":
     before_mut = {p for p in REPO.rglob("mut_*") if p.is_dir()}
     r = subprocess.run([sys.executable, str(TESTS / "mutation_check.py")],
-                       capture_output=True, text=True, encoding="utf-8", cwd=str(REPO))
+                       capture_output=True, text=True, encoding="utf-8", cwd=str(REPO), timeout=900)
     after_mut = {p for p in REPO.rglob("mut_*") if p.is_dir()}
     leftover = sorted(str(p.relative_to(REPO)) for p in (after_mut - before_mut))
     print("  mutation_check exit =", r.returncode, "| 残留副本:", leftover or "none")
