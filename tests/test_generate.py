@@ -195,5 +195,23 @@ if side.exists():
           text.count("C:\\\\Users\\\\") + text.count("C:/Users/") <= len(data.get("reference_images") or []),
           [l for l in text.splitlines() if "Users" in l][:3])
 
+print("--- resolve_proxy: cli > env > profile ---")
+pwork = Path(tempfile.mkdtemp(prefix="proxy_"))
+atexit.register(shutil.rmtree, pwork, True)
+(pwork / ".image-generation").mkdir()
+(pwork / ".image-generation" / "profile.md").write_text(
+    '---\nproxy: "http://prof:1"\n---\n', encoding="utf-8")
+_cwd0 = os.getcwd()
+os.chdir(pwork)
+try:
+    os.environ.pop("IMAGE_GENERATION_PROXY", None)
+    check("profile proxy used", gen.resolve_proxy() == "http://prof:1", gen.resolve_proxy())
+    os.environ["IMAGE_GENERATION_PROXY"] = "http://env:2"
+    check("env beats profile", gen.resolve_proxy() == "http://env:2", gen.resolve_proxy())
+    check("cli beats env", gen.resolve_proxy("http://cli:3") == "http://cli:3", gen.resolve_proxy("http://cli:3"))
+finally:
+    os.environ.pop("IMAGE_GENERATION_PROXY", None)
+    os.chdir(_cwd0)
+
 print("fails =", len(fails), fails)
 sys.exit(1 if fails else 0)

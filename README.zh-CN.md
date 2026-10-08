@@ -45,6 +45,7 @@ cp <skills-dir>/image-generation/references/profile.example.md .image-generation
 
 - 档案随**工程**入库，与技能安装位置无关，也不随技能更新被覆盖。
 - 可用环境变量 `IMAGE_GENERATION_PROFILE` 指定其他路径。
+- 宿主级 frontmatter 字段 `python`（解释器路径）与 `proxy`（出网代理）由 agent / `generate.py` 直接读取。
 - 读取顺序：SKILL.md 通用默认 → 工程档案优先。
 
 ## 依赖

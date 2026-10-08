@@ -9,6 +9,10 @@ output_naming: "assets/scratch/YYYYMMDD-HHMMSS-<slug>.jpg"
 # Precedence: env var IMAGE_GENERATION_PYTHON > this key > bare `python`.
 # Example: python: "C:/Users/<you>/.venvs/imagegen/Scripts/python.exe"
 # python: ""
+# Outbound HTTP(S) proxy for the scripts (optional). Read by generate.py itself.
+# Precedence: --proxy > $IMAGE_GENERATION_PROXY > this key.
+# Example: proxy: "http://127.0.0.1:20171"
+# proxy: ""
 ---
 
 # Project Profile Example (Neutral)

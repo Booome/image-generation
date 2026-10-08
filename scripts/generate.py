@@ -278,6 +278,53 @@ def read_env(name):
     return _read_keys_file(name)
 
 
+def _profile_path():
+    """Path to the project profile: $IMAGE_GENERATION_PROFILE or the default."""
+    return Path(os.environ.get("IMAGE_GENERATION_PROFILE")
+                or (Path(".image-generation") / "profile.md"))
+
+
+def _profile_frontmatter():
+    """Parse the profile's leading YAML frontmatter into a {key: value} dict.
+
+    Deliberately tiny (no YAML dependency): only top-level `key: value` lines in
+    the leading `--- ... ---` block, quotes stripped. Returns {} if absent.
+    """
+    try:
+        text = _profile_path().read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    if not text.startswith("---"):
+        return {}
+    block = text.split("---", 2)
+    if len(block) < 3:
+        return {}
+    out = {}
+    for line in block[1].splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or ":" not in line:
+            continue
+        k, _, v = line.partition(":")
+        out[k.strip()] = v.strip().strip('"').strip("'")
+    return out
+
+
+def resolve_proxy(cli_value=None):
+    """Outbound proxy URL: --proxy > $IMAGE_GENERATION_PROXY > profile `proxy:`.
+
+    Needed when a harness routes egress through a sandbox proxy that connects
+    directly (a blocked image-CDN domain is then unreachable without the user's
+    own proxy, and fails as a bare timeout). Setting it also bypasses the
+    sandbox's network policy/logging - a user-side tradeoff.
+    """
+    if cli_value:
+        return cli_value.strip()
+    env = os.environ.get("IMAGE_GENERATION_PROXY")
+    if env:
+        return env.strip()
+    return _profile_frontmatter().get("proxy") or None
+
+
 def resolve_provider(name, model=None):
     """Return (config, model): the gateway config merged with the selected
     model's overrides (families on one gateway differ in size rules, quality
@@ -616,7 +663,7 @@ def read_image_token(resp, cap_s=240):
     die("stream ended without a completed image payload")
 
 
-def preflight(base, api_key, provider):
+def preflight(base, api_key, provider, proxies=None):
     """Cheap connectivity check (GET /models, no charge) so connection problems
     surface in seconds instead of stalling a billable POST."""
     path = provider.get("preflight_path")
@@ -625,7 +672,7 @@ def preflight(base, api_key, provider):
     try:
         requests.get(base + path,
                      headers={"Authorization": f"Bearer {api_key}"},
-                     timeout=(8, 15))
+                     timeout=(8, 15), proxies=proxies)
     except requests.RequestException as exc:
         die(f"preflight connection failed (nothing was billed): {exc}")
 
@@ -665,6 +712,9 @@ def main():
                     help="output image path; format follows the extension: .png keeps PNG, "
                          "anything else (or none) is written as JPEG")
     ap.add_argument("--api-base", default=None, help="override provider base URL")
+    ap.add_argument("--proxy", default=None,
+                    help="HTTP(S) proxy URL for outbound requests; falls back to "
+                         "$IMAGE_GENERATION_PROXY then the profile 'proxy:' field")
     ap.add_argument("--timeout", type=int, default=240,
                     help="SSE stream total cap AND sync-JSON first-byte window seconds (30~120s typical)")
     ap.add_argument("--jpeg-quality", type=int, default=95,
@@ -683,6 +733,11 @@ def main():
     n_max = provider.get("n_max")
     if n_max and args.n > n_max:
         die(f"provider {args.provider} only supports n <= {n_max}")
+
+    proxy = resolve_proxy(args.proxy)
+    proxies = {"http": proxy, "https": proxy} if proxy else None
+    if proxy:
+        print(f"proxy: {proxy}", file=sys.stderr)
 
     api_key = read_env(provider["env_key"])
     if not api_key:
@@ -728,7 +783,7 @@ def main():
         headers["Accept"] = "text/event-stream"
 
     # Layer 1: cheap connectivity probe before any billable POST.
-    preflight(base, api_key, provider)
+    preflight(base, api_key, provider, proxies)
 
     # Layer 2: connect fails fast (8s). Read timeout depends on protocol:
     #  - SSE providers: heartbeat every 15s keeps the socket alive -> 60s silence = dead.
@@ -765,7 +820,7 @@ def main():
                 mpath = Path(args.mask)
                 files.append(("mask", (mpath.name, mpath.read_bytes(), "image/png")))
             resp = requests.post(url, headers=headers, data=data, files=files,
-                                 timeout=net_timeout, stream=True)
+                                 timeout=net_timeout, stream=True, proxies=proxies)
         else:
             url = base + provider["generations_path"]
             body = {**common, "n": 1}
@@ -790,7 +845,7 @@ def main():
             if use_stream:
                 body["stream"] = True
             resp = requests.post(url, headers=headers, json=body,
-                                 timeout=net_timeout, stream=True)
+                                 timeout=net_timeout, stream=True, proxies=proxies)
     except requests.exceptions.ConnectTimeout:
         die(f"connect timed out ({net_timeout[0]}s) - network unreachable, nothing was sent")
     except requests.exceptions.ReadTimeout:
@@ -822,7 +877,7 @@ def main():
         # TOS over a proxy): the generation already succeeded and is billed, so the
         # message must warn against simply re-running the order.
         try:
-            dl = requests.get(token, timeout=args.timeout)
+            dl = requests.get(token, timeout=args.timeout, proxies=proxies)
             dl.raise_for_status()
         except requests.RequestException as exc:
             die(

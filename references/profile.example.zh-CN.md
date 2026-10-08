@@ -9,6 +9,10 @@ output_naming: "assets/scratch/YYYYMMDD-HHMMSS-<slug>.jpg"
 # 优先级：环境变量 IMAGE_GENERATION_PYTHON > 本字段 > 裸 `python`
 # 例：python: "C:/Users/<you>/.venvs/imagegen/Scripts/python.exe"
 # python: ""
+# 出网 HTTP(S) 代理（可选），由 generate.py 自己读取。
+# 优先级：--proxy > 环境变量 IMAGE_GENERATION_PROXY > 本字段。
+# 例：proxy: "http://127.0.0.1:20171"
+# proxy: ""
 ---
 
 # 项目档案示例（中性）

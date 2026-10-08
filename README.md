@@ -45,6 +45,7 @@ cp <skills-dir>/image-generation/references/profile.example.md .image-generation
 
 - The profile is committed with the **project**, independent of where the skill is installed, and is not overwritten by skill updates.
 - You can use the environment variable `IMAGE_GENERATION_PROFILE` to specify another path.
+- Host-level frontmatter fields `python` (interpreter path) and `proxy` (outbound proxy) are read directly by the agent / `generate.py`.
 - Read order: SKILL.md generic defaults → project profile takes precedence.
 
 ## Dependencies

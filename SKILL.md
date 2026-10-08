@@ -13,7 +13,8 @@ allowed-tools: Read, Write, Bash
 本 skill 的通用默认可被**工程档案**覆盖；读取顺序为「本文件的通用默认 → 若存在工程档案则其内容补充并优先」。
 
 - 档案路径（相对 workspace 根）：`.image-generation/profile.md`；若设置了环境变量 `IMAGE_GENERATION_PROFILE` 则以其为准。
-- 档案为单个 markdown：顶部 YAML frontmatter 承载 `default_provider` / `default_model` / `default_size` / `output_naming`；正文承载「画风模板 / 负向词 / 历史事故 / 已定决策来源」。
+- 档案为单个 markdown：顶部 YAML frontmatter 承载 `default_provider` / `default_model` / `default_size` / `output_naming` / `python` / `proxy`；正文承载「画风模板 / 负向词 / 历史事故 / 已定决策来源」。
+- 宿主级字段：`python`（解释器绝对路径，由 agent 解析后用作 `<PYTHON>`）与 `proxy`（出网代理，**由 `generate.py` 自己读取**：`--proxy` > `$IMAGE_GENERATION_PROXY` > 档案 `proxy:`）。其余默认值由 agent 依档案填入参数表。
 - 中性示例见本 skill 的 `references/profile.example.md`（不代表任何真实项目）。
 - 档案位于工程侧、随工程入库；本 skill 仓库不含该文件。
 
@@ -45,6 +46,7 @@ allowed-tools: Read, Write, Bash
 5. **密钥投递**：`read_env()` 依次读「进程环境 → Windows 用户级注册表 → 工程侧 `.image-generation/keys.env`（可选，最后兜底）」。**以 `-NoProfile -NonInteractive` 启动 shell 的 harness（如 WorkBuddy / CodeBuddy）读不到交互式 shell（PowerShell profile）里 `$env:` 设的值**——这类 harness 需用宿主 env 机制（如 `settings.json` 的 `env`）、`keys.env` 或注册表投递；会加载 profile 的环境（如 OpenCode）则无此问题。**变量存在但值为空 = 未配置**。
    - `keys.env` 为纯文本 `NAME=VALUE`（无 `export`，`#` 注释），默认路径 `.image-generation/keys.env`（**相对当前工作目录**；建议用环境变量 `IMAGE_GENERATION_KEYS_FILE` 显式指定绝对路径）；**该文件不要入库**。
 6. **超时对齐**：`generate.py --timeout` 默认 240s（sync-JSON 厂商要等整张图生成完），而多数 harness 的前台命令默认超时更短（如 WorkBuddy 约 120s）——**sync-JSON 厂商一律以后台任务方式跑**，或把宿主的命令超时调到 ≥300s，否则前台拿不到结果、需另行轮询。
+7. **出网代理**：有些 harness 会把出网流量注入到一个"直连出口"的沙箱代理（`HTTP_PROXY=127.0.0.1:<随机端口>`），它**不链接你自己的代理**——此时被墙的厂商 API / 图片 CDN 域名会表现为超时失败而非 HTTP 错误码。用档案 `proxy:`（或 `$IMAGE_GENERATION_PROXY` / `--proxy`）显式指定代理，见「项目定制层」。
 
 ## 工作流程
 

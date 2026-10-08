@@ -46,12 +46,13 @@ class FakeResp:
         return json.dumps({"data": [{"b64_json": PNG_B64}]})
 
 
-def fake_post(url, headers=None, data=None, files=None, json=None, timeout=None, stream=False):
-    cap.update(url=url, headers=headers, data=data, files=files, body=json, stream=stream)
+def fake_post(url, headers=None, data=None, files=None, json=None, timeout=None, stream=False, proxies=None):
+    cap.update(url=url, headers=headers, data=data, files=files, body=json, stream=stream, proxies=proxies)
     return FakeResp()
 
 
-def fake_get(url, headers=None, timeout=None):
+def fake_get(url, headers=None, timeout=None, proxies=None):
+    cap["get_proxies"] = proxies
     return type("R", (), {"status_code": 200})()
 
 
@@ -86,6 +87,7 @@ check("data carries model/prompt/size/quality",
       and cap["data"].get("size") == "1536x1024" and cap["data"].get("quality") == "high", cap["data"])
 check("SSE stream flag is the string 'true'", cap["data"].get("stream") == "true", cap["data"])
 check("files use repeated 'image' field", cap["files"] and cap["files"][0][0] == "image", cap["files"] and cap["files"][0][0])
+check("no proxy configured -> proxies is None", cap.get("proxies") is None, cap.get("proxies"))
 
 print("--- B) generations branch (volcengine, text-to-image, JSON) ---")
 run(["--provider", "volcengine", "--model", "doubao-seedream-5-0-pro-260628",
