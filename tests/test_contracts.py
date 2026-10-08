@@ -11,9 +11,23 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-SK = Path(r"C:\Users\bodon\workspace\zero-protocol\.opencode\skills\image-generation")
+SK = Path(__file__).resolve().parents[1]
 SCRIPTS = SK / "scripts"
 REFS = SCRIPTS.parent / "references" / "providers"
+
+
+def repo_root():
+    """git top-level, or None when not inside a git work tree."""
+    try:
+        r = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=str(SK),
+                           capture_output=True, text=True)
+        if r.returncode == 0 and r.stdout.strip():
+            return Path(r.stdout.strip())
+    except OSError:
+        pass
+    return None
+
+
 hard, info = [], []
 
 
@@ -76,12 +90,15 @@ for tfile in (SK / "tests").glob("*.py"):
             hard.append("%s 引用了不存在的文件 %s" % (tfile.name, ref))
 
 print("=== 5) 测试产物确实被 git 忽略 ===")
-repo = SK.parents[2]
-for pattern in ("node_modules", "__pycache__"):
-    r = subprocess.run(["git", "check-ignore", "-q", str(SK / "tests" / pattern)],
-                       capture_output=True, cwd=str(repo))
-    if r.returncode != 0:
-        hard.append("%s 未被 git 忽略" % pattern)
+repo = repo_root()
+if repo is None:
+    print("  [skip] 非 git 工作树，跳过")
+else:
+    for pattern in ("node_modules", "__pycache__"):
+        r = subprocess.run(["git", "check-ignore", "-q", str(SK / "tests" / pattern)],
+                           capture_output=True, cwd=str(repo))
+        if r.returncode != 0:
+            hard.append("%s 未被 git 忽略" % pattern)
 
 print("=== 6) scripts/ 与 SKILL.md 清单一致 ===")
 actual = {p.name for p in SCRIPTS.glob("*.py")}
@@ -100,7 +117,7 @@ USERPATH = re.compile(r"(?:[A-Za-z]:[\\/]+Users|(?<![\w.])/(?:home|Users))[\\/]+
 PLACEHOLDER_TEST = [
     ("placeholder <you> passes", r"See <盘符>:\Users\<you>\AppData for details", True),
     ("placeholder <某人> passes", r"path is C:\Users\<某人>\x", True),
-    ("real user name fails", r"root C:\Users\bodon\workspace", False),
+    ("real user name fails", r"root C:\Users\alice\workspace", False),
     ("forward slashes fail", "home /Users/someone/proj", False),
     ("posix /home fails", "config at /home/alice/.config", False),
     ("url-ish text passes", "see https://example.com/Users/guide for docs", True),
@@ -112,14 +129,18 @@ for label, sample, should_pass in PLACEHOLDER_TEST:
     if not ok:
         hard.append("路径守门器自检失败: %s -> %s" % (label, found))
 
-repo = SK.parents[2]
-tracked = [f for f in subprocess.run(["git", "ls-files", "-z"], capture_output=True,
-           cwd=str(repo)).stdout.decode("utf-8").split(chr(0)) if f]
+repo = repo_root()
+if repo is None:
+    print("  [skip] 非 git 工作树，跳过入库扫描")
+    tracked = []
+else:
+    tracked = [f for f in subprocess.run(["git", "ls-files", "-z"], capture_output=True,
+               cwd=str(repo)).stdout.decode("utf-8").split(chr(0)) if f]
 # This file carries deliberately-bad samples for the self-test above; scanning
 # its own source would always flag them. Skip it and keep the samples honest.
 SELF = "tests/test_contracts.py"
 for f in tracked:
-    if f.startswith("资产/待整理/") or f.endswith(SELF):
+    if f.endswith(SELF):
         continue
     full = repo / f
     if not full.is_file():
