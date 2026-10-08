@@ -208,9 +208,8 @@ def write_result(payload):
     Two jobs at once:
       * an archive record - the exact API response, request id and paths
         survive even if the host shell mangles the console copy;
-      * the draft of the asset's generation-parameter file (资产/README.md
-        「生成参数（同名 JSON）」), so cataloguing is a rename plus asset /
-        generated_at, not a hand-transcription.
+      * a draft generation-parameter file - rename it and add an asset id /
+        timestamp to catalogue the run, instead of transcribing by hand.
 
     Returns the path written, or None.
     """
@@ -622,11 +621,10 @@ def main():
     global _RESULT_PATH
     configure_stdio()
     ap = argparse.ArgumentParser(description="Generate images via multi-provider image APIs")
-    ap.add_argument("--provider", default="heyroute", choices=sorted(PROVIDERS))
+    ap.add_argument("--provider", required=True, choices=sorted(PROVIDERS))
     ap.add_argument("--model", default=None, help="defaults to provider default_model")
-    ap.add_argument("--size", default="16:9 1K",
-                    help="WIDTHxHEIGHT or tiered like '16:9 1K' / '4K 3:2' (auto is forbidden); "
-                         "16:9 1K is the project default - do not raise it without asking")
+    ap.add_argument("--size", required=True,
+                    help="WIDTHxHEIGHT or tiered like '16:9 1K' / '4K 3:2' (auto is forbidden)")
     ap.add_argument("--quality", default=None, choices=ALLOWED_QUALITIES,
                     help="defaults to provider default_quality (high)")
     ap.add_argument("--n", type=int, default=1, help="provider n_max may be 1")
@@ -650,8 +648,7 @@ def main():
     if not 1 <= args.jpeg_quality <= 95:
         die(f"--jpeg-quality must be in 1..95 (got {args.jpeg_quality})")
 
-    # Sidecar name matches the cataloguing convention (资产/README.md): the
-    # generated file sits next to its image with only the extension swapped, so
+    # The sidecar sits next to its image with only the extension swapped, so
     # cataloguing is a rename, not a hand-written file.
     _RESULT_PATH = Path(args.out).with_suffix(".json")
 
@@ -839,9 +836,9 @@ def main():
     }
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
-    # Sidecar: the draft of the asset's generation-parameter file, so it holds
-    # ONLY the fields 资产/README.md fixes - no run-time bookkeeping. Cataloguing
-    # is then a rename plus `asset` / `generated_at`.
+    # Sidecar: a draft generation-parameter file. It holds only cataloguing
+    # fields - no run-time bookkeeping. Cataloguing is then a rename plus an
+    # `asset` id / timestamp.
     sidecar = {
         "provider": args.provider,
         "model": model,
