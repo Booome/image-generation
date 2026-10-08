@@ -21,12 +21,9 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 TESTS = Path(__file__).resolve().parent
 SRC = TESTS.parent / "scripts" / "generate.py"
-IMG = TESTS.parents[3] / "资产" / "场景" / "scn-000004.jpg"
+IMG = TESTS / "fixtures" / "sample.jpg"
 if not IMG.exists():
-    # The library may have moved on; any real image exercises the same path.
-    IMG = next((TESTS.parents[3] / "资产").rglob("*.jpg"), None)
-    if IMG is None:
-        sys.exit("no reference image found under 资产/ to build the request from")
+    sys.exit("missing fixture %s (run tests/fixtures/make_fixtures.py)" % IMG)
 TMP = Path(tempfile.mkdtemp(prefix="req_"))
 atexit.register(shutil.rmtree, TMP, True)
 

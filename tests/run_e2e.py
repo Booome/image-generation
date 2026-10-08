@@ -16,8 +16,8 @@ import time
 from pathlib import Path
 
 TESTS = Path(__file__).resolve().parent
-REPO = TESTS.parents[3]
-DEFAULT_IMAGE = REPO / "资产" / "场景" / "scn-000002.jpg"
+ROOT = TESTS.parent
+DEFAULT_IMAGE = TESTS / "fixtures" / "sample.jpg"
 
 # Every child process gets a deadline: a hanging test must FAIL, not stall.
 UNIT_TIMEOUT_S = 180
@@ -50,7 +50,7 @@ def main():
 
     print("=== unit tests (offline) ===")
     for name in ("test_generate.py", "test_sizes.py", "test_assets.py", "test_contracts.py",
-                 "test_semantics.py", "test_assets_library.py", "test_hygiene.py"):
+                 "test_semantics.py", "test_hygiene.py"):
         try:
             rc = subprocess.run([sys.executable, str(TESTS / name)],
                                 timeout=UNIT_TIMEOUT_S).returncode
