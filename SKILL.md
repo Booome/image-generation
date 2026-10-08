@@ -1,11 +1,21 @@
 ---
 name: image-generation
 description: 多厂商图片生成工作流（HeyRoute 及后续 OpenAI 兼容厂商）：提示词八段完整性检查、参数平铺确认、Python 脚本下单（含 3:2 4K 等口语档位自动换算）、SSE/JSON 取回、按提示词逐项核对交付。凡用户要求生成图片、出图、生图、画一张、做配图、参考图出新图、换姿态/状态重绘，或点名 gpt-image、nano-banana、flux、gemini image 等图像模型时，即使未提到厂商名或本 skill 名字，也一律使用本 skill。
+allowed-tools: Read, Write, Bash
 ---
 
 # 图片生成（image-generation）
 
 多厂商图片生成工作流：提示词完整性检查 → 参数平铺确认 → 脚本下单 → 交付核对。
+
+## 项目定制层（可选）
+
+本 skill 的通用默认可被**工程档案**覆盖；读取顺序为「本文件的通用默认 → 若存在工程档案则其内容补充并优先」。
+
+- 档案路径（相对 workspace 根）：`.image-generation/profile.md`；若设置了环境变量 `IMAGE_GENERATION_PROFILE` 则以其为准。
+- 档案为单个 markdown：顶部 YAML frontmatter 承载 `default_provider` / `default_model` / `default_size` / `output_naming`；正文承载「画风模板 / 负向词 / 历史事故 / 已定决策来源」。
+- 中性示例见本 skill 的 `references/profile.example.md`（不代表任何真实项目）。
+- 档案位于工程侧、随工程入库；本 skill 仓库不含该文件。
 
 ## 工作流程
 
@@ -23,12 +33,12 @@ python scripts/generate.py \
   --quality high \
   --prompt-file prompt.txt \
   --image 参考图.png \
-  --out 资产/待整理/输出名.jpg
+  --out out.jpg
 ```
 
    **输出编码（中文不乱码）＝两层，本 skill 只依赖第 1 层：**
    - **第 1 层 · 脚本自愈（自带，任何机器、任何宿主、不装任何东西都成立）**：`generate.py` 用 `configure_stdio()` 自判断——**显式设了 `PYTHONIOENCODING` / `PYTHONUTF8` 就按它来**；**交互式控制台不动**（Windows 走 `WriteConsoleW`，Unix 本就 UTF-8）；**管道输出默认 UTF-8**（宿主 locale 只是本机偏好、不是消费者的契约，故不继承）。**不改动任何系统或宿主设置（代码页 / locale / profile / 环境变量一律不碰）**。→ 在**没装插件的陌生机器**上，中文报错与结果 JSON 同样正确。
-   - **第 2 层 · 宿主侧（可选加分项，不假设它存在）**：若恰好运行在**装了 `opencode-windows-encoding@5.0.0` 的 opencode** 里，它会给每条 bash 命令注入 UTF-8，使**调用方 shell 自己打印的中文**（`Get-ChildItem` 出来的中文文件名等）也正常——**这层 Python 管不到**。**没有它不影响本 skill 任何功能**，只是没人兜这最后一层；配置方法见根 `README.md`「Windows 中文编码问题」。
+   - **第 2 层 · 宿主侧（可选加分项，不假设它存在）**：若恰好运行在**装了 `opencode-windows-encoding@5.0.0` 的 opencode** 里，它会给每条 bash 命令注入 UTF-8，使**调用方 shell 自己打印的中文**（`Get-ChildItem` 出来的中文文件名等）也正常——**这层 Python 管不到**。**没有它不影响本 skill 任何功能**，只是没人兜这最后一层。（`opencode-windows-encoding` 是 **OpenCode 可选**加成，其他 harness 无需关心。）
    - **两层兼容**：插件注入 `PYTHONIOENCODING=utf-8` 时 `configure_stdio()` 走早退，结果仍为 UTF-8（实测共存无冲突）。
    - 每单同时落盘 `<输出名>.result.json`（UTF-8），控制台万一被宿主编码破坏时以该文件为准。
 
@@ -56,7 +66,7 @@ python scripts/generate.py \
 | `mask_editor.py` | 浏览器里画重绘蒙版：**多选区可叠加**（矩形/椭圆/**多边形**/画笔/橡皮都是独立选区，右侧列表可点选、单独删除，`Ctrl+Z` 逐步撤销；多边形单击落点、双击闭合、Backspace 退点、Esc 放弃）、比例锁（1:1 / 4:3 / 3:2 / 16:9 / 21:9）、拖手柄改尺寸、拖框内移动、数值输入、方向键微调（框 / 手柄双目标）、缩放平移 | 需要 mask 局部重绘，或要框一个区域取坐标时 |
 | `bbox_from_mask.py` | 蒙版 PNG → 归一化 `0–999` 坐标 | 画完蒙版要写进 Seedream 坐标编辑时 |
 | `compress_refs.py` | 把参考图压到 base64 上传预算（默认 6MB），压完再 `--image` 传 | 走 JSON base64 通道（apiyi / seedream）且参考图体积偏大时 |
-| `convert_assets_to_jpg.py` | 资产库批量转高质量 JPEG（`--dry-run` / `--delete-originals` / 自动重指软链接） | 库里攒了非 JPG 图想统一瘦身时 |
+| `convert_assets_to_jpg.py` | 图片库批量转高质量 JPEG（`--dry-run` / `--delete-originals` / 自动重指软链接） | 库里攒了非 JPG 图想统一瘦身时 |
 
 **改了 `scripts/` 或 `tests/` 之后先跑测试**：`python tests/run_e2e.py` —— 先跑 4 组**离线单测**（`test_generate` / `test_sizes` / `test_assets` / `test_request`，零网络零费用），再跑**无头 Chromium** 的交互断言 + 蒙版像素校验 + `bbox_from_mask.py` 集成；只想跑离线那半可用 `--unit-only`，只想验"测试真的能失败"可用 `python tests/mutation_check.py`。首次需 `cd tests && npm install && npx playwright install chromium`，详见 `tests/README.md`。
 
@@ -78,10 +88,10 @@ python scripts/generate.py \
 3. **不自动改规格**：分辨率/参数不合规只报错与推荐，替换权在用户。
 4. **size 禁用 `auto`**：每单必须给**确定的像素值**（参数表写明解析后的 `WIDTHxHEIGHT`，如 `1792x1008`）；`auto` 已实测输出 1:1 方图，脚本层硬拒绝。
 5. **如实回报**：实际分辨率、核对偏差必须报告。
-6. **花费意识（含默认规格）**：**默认规格就是 `16:9 1K`**（本项目约定）；分辨率/张数越高越贵，**一律不得擅自升档**——包括"为了更清晰""为了补细节""底图更大"这类看起来合理的理由，**都必须先向用户单独提出并获同意**。**禁止批量测试**。凡是参数表里出现非 `16:9 1K` 的规格，必须在表里显式标注"**高于默认，需你确认**"。
+6. **花费意识**：默认 size 取工程档案 `.image-generation/profile.md` 的 `default_size`（无档案或未配置则不设默认）；分辨率/张数越高越贵，**一律不得擅自升档**——包括"为了更清晰""为了补细节""底图更大"这类看起来合理的理由，**都必须先向用户单独提出并获同意**。**禁止批量测试**。
 7. **比例/几何修正走 mask 局部编辑**：纯文字比例锁已 0/9 失效——修比例用 `--mask` 圈区 + 几何指令，**渐进迭代**（每轮重复不变量+禁止回弹）；`edits` 的 `size` 必须显式匹配输入画幅（`auto` → 1:1 方图，已实测）。
 8. **坐标框选编辑（Seedream）+ 多选区蒙版**：`mask_editor.py` 支持**多个选区叠加**——矩形/椭圆/画笔**各自成为独立选区**（`S.items`），可**点击选中**（画布或右侧「选区列表」）、按 `Delete` 或点「删除选中」删掉单个选区、`Ctrl+Z` 多步撤销；画笔与橡皮也是可选中的独立项（橡皮用 `destination-out` 扣掉先前的选区）。导出的蒙版仍是**黑白位图并集**，下游 `--mask`/`bbox_from_mask.py` 无感。对**已生成图**做局部修改时，用矩形框选 + `bbox_from_mask.py` 取归一化坐标，把 `Image N x1 y1 x2 y2` 写进 prompt（详见 `references/coordinate-edit.md`）。**该能力擅长"区域内替换/重绘"，不擅长"精确等比缩放"**——要精确缩放走合成法。**多个不连续区域要一起重绘时，就用多选区**（如"兽的旧位置 + 新落位"两块）。
 9. **独立任务原则（提示词禁引生成历史）**：生图模型**没有上下文**——它只知道本单传进去的图和这段提示词。提示词里**禁止任何引用先前生成的措辞**（"在此基础上""再缩小一些""继续改""上次那版""已经高清化好的"……），因为它们对模型**毫无意义**，还会让它按自己的理解乱动。每单都按**第一次见到图 1** 来描述：**画面里现在是什么样 → 要改成什么样**。要表达"比上一版更小"，只能换算成本单的**绝对比例**（例："把它缩到当前大小的**一半**"，其中"当前"指**本单输入图**里的它，而非历史上的某版）。
-10. **`待整理/` 输出命名 = 时间戳开头**：`--out` 一律写成 `资产/待整理/YYYYMMDD-HHMMSS-<简短说明>.jpg`（如 `20260929-143012-门口兽巢-move-01.jpg`），**文件名排序即可定位最新一单**。下单前用当前时间生成前缀，不要沿用上单文件名。
+10. **输出命名**：按工程档案 `.image-generation/profile.md` 的 `output_naming` 生成 `--out`；无档案或未配置时建议时间戳前缀写成 `YYYYMMDD-HHMMSS-<简短说明>.jpg`（如 `20260929-143012-move-01.jpg`），**文件名排序即可定位最新一单**。下单前用当前时间生成前缀，不要沿用上单文件名。
 11. **编辑一律优先用 `--mask`**：凡是"改局部、保其余"的编辑（尤其**连续多轮迭代**），必须优先使用 `--mask`——**普通 edits 是整幅重绘，多轮会让背景逐轮劣化**（已实测）。mask 的"透明区=重绘、不透明区=像素级保留"是**背景不被过水的唯一手段**。用户已明确此后编辑尽量加 mask。
-12. **画风段按场景判定**：**从零生图 / 重绘式放大（高清化）/ 换姿态换外观 / 多图合成**这四类**必写**画风段；纯蒙版局部重绘与轻微编辑可省（底图自带画风）。画风段只写**渲染语言 + 光照与饱和度基调 + 负向**，**不写材质**（随资产变化，写进各自提示词）、**不做统一色卡**（颜色以参考图为准）。模板与判定表见 `references/prompt-checklist.md` 第 5 段。
+12. **画风段按场景判定**：**从零生图 / 重绘式放大（高清化）/ 换姿态换外观 / 多图合成**这四类**必写**画风段；纯蒙版局部重绘与轻微编辑可省（底图自带画风）。画风段只写**渲染语言 + 光照与饱和度基调 + 负向**，**不写材质**（随素材变化，写进各自提示词）、**不做统一色卡**（颜色以参考图为准）。模板与判定表见 `references/prompt-checklist.md` 第 5 段。
