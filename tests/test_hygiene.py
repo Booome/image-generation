@@ -11,7 +11,7 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 
 SK = Path(__file__).resolve().parents[1]
-REPO = SK.parents[2]
+REPO = SK.parent
 TESTS = SK / "tests"
 issues = []
 
@@ -37,8 +37,10 @@ if dirty:
 
 print("=== 2) 测试是否在仓库工作区留下文件 ===")
 g = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True,
-                   encoding="utf-8", cwd=str(REPO)).stdout
-untracked = [l[3:] for l in g.splitlines() if l.startswith("??")]
+                   encoding="utf-8", cwd=str(REPO))
+untracked = []
+if g.returncode == 0:
+    untracked = [l[3:] for l in g.stdout.splitlines() if l.startswith("??")]
 junk = [u for u in untracked if any(k in u for k in ("_mut", "_tmp", "mask_out", "e2e_mask", ".pyc"))]
 print("  未跟踪项:", len(untracked), "其中疑似测试残留:", junk or "none")
 if junk:

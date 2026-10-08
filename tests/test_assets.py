@@ -111,28 +111,28 @@ conv = load("convert_assets_to_jpg")
 print("--- convert_assets_to_jpg: only converts what it should ---")
 tree = TMP / "lib"
 created = make_tree(tree, {
-    "怪物/mob-000001.png": ("RGB", (120, 90), (10, 20, 30)),
-    "怪物/mob-000002.webp": ("RGB", (110, 80), (30, 40, 50)),
-    "场景/keep.jpg": ("RGB", (100, 70), (60, 70, 80)),
-    "待整理/scratch.png": ("RGB", (90, 60), (90, 10, 10)),
+    "images/img-000001.png": ("RGB", (120, 90), (10, 20, 30)),
+    "images/img-000002.webp": ("RGB", (110, 80), (30, 40, 50)),
+    "photos/keep.jpg": ("RGB", (100, 70), (60, 70, 80)),
+    "skipme/scratch.png": ("RGB", (90, 60), (90, 10, 10)),
 })
 
 r = subprocess.run([sys.executable, str(SCRIPTS / "convert_assets_to_jpg.py"), "--root", str(tree),
-                    "--skip", "待整理"], capture_output=True, text=True, encoding="utf-8")
+                    "--skip", "skipme"], capture_output=True, text=True, encoding="utf-8")
 check("exit 0", r.returncode == 0, r.stderr[-200:])
-check("png converted", (tree / "怪物" / "mob-000001.jpg").exists())
-check("webp converted", (tree / "怪物" / "mob-000002.jpg").exists())
-check("skipped dir untouched", not (tree / "待整理" / "scratch.jpg").exists())
-check("originals kept by default", (tree / "怪物" / "mob-000001.png").exists())
-check("existing .jpg not re-encoded", (tree / "场景" / "keep.jpg").exists())
+check("png converted", (tree / "images" / "img-000001.jpg").exists())
+check("webp converted", (tree / "images" / "img-000002.jpg").exists())
+check("skipped dir untouched", not (tree / "skipme" / "scratch.jpg").exists())
+check("originals kept by default", (tree / "images" / "img-000001.png").exists())
+check("existing .jpg not re-encoded", (tree / "photos" / "keep.jpg").exists())
 check("partial-terminal-raster untouched", not list(tree.rglob("*.bmp")))
-check("converted file is real JPEG", Image.open(tree / "怪物" / "mob-000001.jpg").format == "JPEG")
+check("converted file is real JPEG", Image.open(tree / "images" / "img-000001.jpg").format == "JPEG")
 
 print("--- convert_assets_to_jpg: symlinks follow their target ---")
-link = tree / "怪物" / "成年体-001.png"
+link = tree / "images" / "extra-001.png"
 link.unlink(missing_ok=True)
 import os
-os.symlink("../怪物/mob-000001.png" if False else "mob-000001.png", link)
+os.symlink("img-000001.png", link)
 r = subprocess.run([sys.executable, str(SCRIPTS / "convert_assets_to_jpg.py"), "--root", str(tree)],
                    capture_output=True, text=True, encoding="utf-8")
 check("relink reported", "symlinks to re-point" in r.stdout, r.stdout[-160:])

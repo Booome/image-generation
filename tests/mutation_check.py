@@ -15,7 +15,6 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 SK = Path(__file__).resolve().parents[1]
 GEN = "scripts/generate.py"
-REPO = SK.parents[2]
 
 SUITES = ["test_generate.py", "test_sizes.py", "test_assets.py", "test_request.py",
           "test_contracts.py", "test_semantics.py"]
@@ -53,16 +52,10 @@ MUTATIONS = [
 
 def run_browser(mutated_text, target):
     """For mask_editor mutations the verdict lives in the browser half."""
-    work = Path(tempfile.mkdtemp(prefix="mutb_", dir=str(REPO)))
+    work = Path(tempfile.mkdtemp(prefix="mutb_"))
     try:
-        skill = work / ".opencode" / "skills" / "image-generation"
-        skill.parent.mkdir(parents=True)
+        skill = work / "image-generation"
         shutil.copytree(SK, skill, ignore=shutil.ignore_patterns("node_modules", "__pycache__"))
-        assets = work / "资产"
-        try:
-            assets.symlink_to(REPO / "资产", target_is_directory=True)
-        except (OSError, NotImplementedError):
-            shutil.copytree(REPO / "资产" / "场景", assets / "场景")
         (skill / target).write_text(mutated_text, encoding="utf-8")
         try:
             r = subprocess.run([sys.executable, str(skill / "tests" / "run_e2e.py")],
@@ -77,20 +70,13 @@ def run_browser(mutated_text, target):
 def run_suites(mutated_text, target):
     """Run the suites against a mutated copy.
 
-    The copy keeps the skill at the SAME depth inside a skeleton repo (with the
-    资产/ tree linked in), because the tests resolve the repo by walking up from
-    __file__ - a flat temp copy would lose that path.
+    A flat temp copy is fine: every test resolves the skill via
+    ``Path(__file__).resolve().parents[1]``, so nesting depth is irrelevant.
     """
-    work = Path(tempfile.mkdtemp(prefix="mut_", dir=str(REPO)))
+    work = Path(tempfile.mkdtemp(prefix="mut_"))
     try:
-        skill = work / ".opencode" / "skills" / "image-generation"
-        skill.parent.mkdir(parents=True)
+        skill = work / "image-generation"
         shutil.copytree(SK, skill, ignore=shutil.ignore_patterns("node_modules", "__pycache__"))
-        assets = work / "资产"
-        try:
-            assets.symlink_to(REPO / "资产", target_is_directory=True)
-        except (OSError, NotImplementedError):
-            shutil.copytree(REPO / "资产" / "场景", assets / "场景")
         (skill / target).write_text(mutated_text, encoding="utf-8")
         out = {}
         for name in SUITES:

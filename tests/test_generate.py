@@ -141,9 +141,9 @@ before, after = run_probe({"PYTHONIOENCODING": "gbk"})
 check("an explicit PYTHONIOENCODING is left alone", after == "gbk", (before, after))
 
 print("--- sidecar: the cataloguing draft, not run-time bookkeeping ---")
-# The sidecar generate.py leaves next to the image must already look like the
-# asset's generation-parameter file (资产/README.md): rename it, add `asset` +
-# `generated_at`, and it is catalogable - with no hand transcription.
+# The sidecar generate.py leaves next to the image is already a draft
+# generation-parameter file: rename it and add an `asset` id / timestamp, and
+# it is catalogable - with no hand transcription.
 import json as _json
 
 SIDECAR_KEYS = {"provider", "model", "endpoint", "requested_spec", "resolved_size",
