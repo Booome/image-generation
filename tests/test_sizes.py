@@ -73,7 +73,7 @@ print("--- each rule fires on its OWN where the rule set allows it ---")
 # (see the comment on each row). If a check is deleted from _explicit_errors,
 # its row stops being rejected and this block goes red.
 #   pixel_window: 3552x2368 is ratio 1.5, under the edge cap, over max_px by
-#     16866 - only the pixel window rejects it. (An odd edge like 1207x805 is
+#     116736 - only the pixel window rejects it. (An odd edge like 1207x805 is
 #     deliberately NOT here: edge-multiple is no longer validated.)
 #   seedream_px (no edge rule, ratio cap 16): 1916x1916 is under max_edge and
 #     ratio 1.0, and only the pixel floor rejects it.
@@ -102,8 +102,6 @@ for rule_name, w, h, needle in [
     errs = gen._explicit_errors(w, h, rule)
     check("%s %dx%d: %r is reported" % (rule_name, w, h, needle), any(needle in e for e in errs), errs)
     check("%s %dx%d: _size_ok agrees" % (rule_name, w, h), not gen._size_ok(w, h, rule), errs)
-
-print("--- rejections name the rule AND offer candidates ---")
 
 print("--- rejections name the rule AND offer candidates ---")
 buf = io.StringIO()

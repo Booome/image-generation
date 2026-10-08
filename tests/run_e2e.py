@@ -16,7 +16,6 @@ import time
 from pathlib import Path
 
 TESTS = Path(__file__).resolve().parent
-ROOT = TESTS.parent
 DEFAULT_IMAGE = TESTS / "fixtures" / "sample.jpg"
 
 # Every child process gets a deadline: a hanging test must FAIL, not stall.

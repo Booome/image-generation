@@ -68,7 +68,7 @@ python scripts/generate.py \
 | `compress_refs.py` | 把参考图压到 base64 上传预算（默认 6MB），压完再 `--image` 传 | 走 JSON base64 通道（apiyi / seedream）且参考图体积偏大时 |
 | `convert_assets_to_jpg.py` | 图片库批量转高质量 JPEG（`--dry-run` / `--delete-originals` / 自动重指软链接） | 库里攒了非 JPG 图想统一瘦身时 |
 
-**改了 `scripts/` 或 `tests/` 之后先跑测试**：`python tests/run_e2e.py` —— 先跑 4 组**离线单测**（`test_generate` / `test_sizes` / `test_assets` / `test_request`，零网络零费用），再跑**无头 Chromium** 的交互断言 + 蒙版像素校验 + `bbox_from_mask.py` 集成；只想跑离线那半可用 `--unit-only`，只想验"测试真的能失败"可用 `python tests/mutation_check.py`。首次需 `cd tests && npm install && npx playwright install chromium`，详见 `tests/README.md`。
+**改了 `scripts/` 或 `tests/` 之后先跑测试**：`python tests/run_e2e.py` —— 先跑**离线单测**（`test_generate` / `test_sizes` / `test_assets` / `test_request` / `test_contracts` / `test_semantics` / `test_hygiene`，零网络零费用），再跑**无头 Chromium** 的交互断言 + 蒙版像素校验 + `bbox_from_mask.py` 集成；只想跑离线那半可用 `--unit-only`，只想验"测试真的能失败"可用 `python tests/mutation_check.py`。首次需 `cd tests && npm install && npx playwright install chromium`，详见 `tests/README.md`。
 
 ## 未覆盖功能与新增厂商
 

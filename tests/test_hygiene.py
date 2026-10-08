@@ -11,7 +11,7 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 
 SK = Path(__file__).resolve().parents[1]
-REPO = SK.parent
+REPO = SK
 TESTS = SK / "tests"
 issues = []
 

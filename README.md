@@ -60,7 +60,7 @@ python scripts/generate.py \
   --out out.jpg
 ```
 
-`--provider` 与 `--size` 均为必填（本 skill 不设默认规格）。查看全部参数：`python scripts/generate.py --help`。
+`--provider` 与 `--size` 均为必填（CLI 层必填；工作流默认值可来自工程档案）。查看全部参数：`python scripts/generate.py --help`。
 
 ## 支持的厂商
 

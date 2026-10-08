@@ -7,7 +7,7 @@
 ## 一次性准备
 
 ```bash
-cd .opencode/skills/image-generation/tests
+cd tests
 npm install                        # playwright（node_modules 已被 .gitignore 忽略）
 npx playwright install chromium    # 约 115MB，只下载一次
 ```
@@ -28,6 +28,9 @@ python run_e2e.py --image <path> --keep-mask out.png
 | `test_sizes.py` | 7 个档位/显式尺寸 × 4 渠道：比例正确、规则合法、**被上限钳制时必须显式标注**；非法值一律拒绝且给出候选与"未发请求"声明 |
 | `test_assets.py` | `compress_refs`：base64 长度、`fit()` 收敛到预算、CLI 报告尺寸**等于写盘尺寸**、预算不可达时非零退出；`convert_assets_to_jpg`：只转该转的、默认保留原图、`--skip`、`--delete-originals`、`--dry-run`、软链接重指 |
 | `test_request.py` | 桩掉 `requests.post`：三种请求形态（multipart edits / JSON generations / JSON `image` 数组）的端点、字段、类型、SSE 与 `quality` 的有无 |
+| `test_contracts.py` | 跨文件契约：每个 provider 有档案、PROVIDERS 字段被读取、scripts↔SKILL.md 一致、入库文件无真实用户路径 |
+| `test_semantics.py` | 既有语义回归：mask_editor 保存 alpha、bbox 阈值、generate exit code、`--size` 必填、compress/convert 默认行为 |
+| `test_hygiene.py` | 资源与清理：临时目录/工作区残留、端口释放、失败路径 exit 1 |
 
 ## 浏览器 E2E（真实 Chromium）
 
@@ -35,7 +38,7 @@ python run_e2e.py --image <path> --keep-mask out.png
 |---|---|
 | `run_e2e.py` | 编排：跑离线单测 → 起服务端（自动选空闲端口）→ 跑浏览器断言 → 校验蒙版 |
 | `e2e_server.py` | 无头启动 `mask_editor` 的 HTTP 服务（**把 `webbrowser.open` 换成 no-op，绝不弹出真实窗口**） |
-| `e2e.js` | 26 项 playwright 断言 |
+| `e2e.js` | playwright 交互断言（条数以 e2e.js 为准） |
 | `verify_mask.py` | 保存后蒙版：尺寸、bbox 比例、内外 alpha、覆盖率 + `bbox_from_mask.py` 集成 |
 
 覆盖：绘制 → 比例锁 → 拖角/拖边/拖框内 → 数值输入（H 随比例推导、锁定禁用）→ **输入框聚焦时方向键被吞**（防打字变移框）→ 方向键微调（框 1px / Shift 10px；点手柄后推拉该边）→ Esc 取消手柄 → Ctrl+Z 撤销 → Ctrl+滚轮缩放 / 中键平移 / 适配 → 椭圆同一套比例锁 → 保存 → 蒙版校验。
