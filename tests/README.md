@@ -1,50 +1,50 @@
-# image-generation 工具链测试
+# image-generation Toolchain Tests
 
-`python run_e2e.py` 一条命令跑完全部：**离线单测**（多组，零网络零费用）→ **无头 Chromium 交互断言** → **蒙版像素校验 + `bbox_from_mask.py` 集成**。退出码 0 = 全绿。
+`python run_e2e.py` runs everything in one command: **offline unit tests** (multiple groups, zero network, zero cost) → **headless Chromium interaction assertions** → **mask pixel verification + `bbox_from_mask.py` integration**. Exit code 0 = all green.
 
-> 断言清单以各测试文件为准，本文件不写死条数（写死的数字必然随代码漂移）。要验"测试真的会失败"，跑 `python mutation_check.py` —— 它故意改坏实现，要求套件变红。
+> The assertion inventory is defined by each test file; this document does not hard-code counts (a hard-coded number is bound to drift as the code changes). To verify "the tests really do fail", run `python mutation_check.py` — it deliberately breaks the implementation and requires the suite to go red.
 
-## 一次性准备
+## One-time setup
 
 ```bash
 cd tests
-npm install                        # playwright（node_modules 已被 .gitignore 忽略）
-npx playwright install chromium    # 约 115MB，只下载一次
+npm install                        # playwright (node_modules is already ignored by .gitignore)
+npx playwright install chromium    # ~115MB, downloaded only once
 ```
 
-## 运行
+## Running
 
 ```bash
-python run_e2e.py                              # 默认底图 tests/fixtures/sample.jpg
-python run_e2e.py --unit-only                  # 只跑离线单测（不需要 Chromium）
+python run_e2e.py                              # default base image tests/fixtures/sample.jpg
+python run_e2e.py --unit-only                  # run offline unit tests only (no Chromium needed)
 python run_e2e.py --image <path> --keep-mask out.png
 ```
 
-## 离线单测（多组，不需要 node）
+## Offline unit tests (multiple groups, no node needed)
 
-| 文件 | 覆盖 |
+| File | Coverage |
 |---|---|
-| `test_generate.py` | `write_output` 格式契约（`.png` 出 PNG、其余出 JPEG、**已是 JPEG 则不重编码**、带 alpha 回退 PNG、无扩展名补 `.jpg`）、`image_size` 头解析、`detect_format`、`configure_stdio` 尊重显式 env、`_size_ok` 与 `_explicit_errors` 同源 |
-| `test_sizes.py` | 7 个档位/显式尺寸 × 4 渠道：比例正确、规则合法、**被上限钳制时必须显式标注**；非法值一律拒绝且给出候选与"未发请求"声明 |
-| `test_assets.py` | `compress_refs`：base64 长度、`fit()` 收敛到预算、CLI 报告尺寸**等于写盘尺寸**、预算不可达时非零退出；`convert_assets_to_jpg`：只转该转的、默认保留原图、`--skip`、`--delete-originals`、`--dry-run`、软链接重指 |
-| `test_request.py` | 桩掉 `requests.post`：三种请求形态（multipart edits / JSON generations / JSON `image` 数组）的端点、字段、类型、SSE 与 `quality` 的有无 |
-| `test_contracts.py` | 跨文件契约：每个 provider 有档案、PROVIDERS 字段被读取、scripts↔SKILL.md 一致、入库文件无真实用户路径 |
-| `test_semantics.py` | 既有语义回归：mask_editor 保存 alpha、bbox 阈值、generate exit code、`--size` 必填、compress/convert 默认行为 |
-| `test_hygiene.py` | 资源与清理：临时目录/工作区残留、端口释放、失败路径 exit 1 |
+| `test_generate.py` | `write_output` format contract (`.png` emits PNG, everything else emits JPEG, **an existing JPEG is not re-encoded**, with alpha falls back to PNG, no extension appends `.jpg`), `image_size` header parsing, `detect_format`, `configure_stdio` respects an explicit env, `_size_ok` and `_explicit_errors` share one source |
+| `test_sizes.py` | 7 tiers/explicit sizes × 4 providers: ratio correct, rule legal, **must be explicitly annotated when clamped by the cap**; illegal values are always rejected with candidates and a "no request sent" declaration |
+| `test_assets.py` | `compress_refs`: base64 length, `fit()` converges to budget, CLI-reported size **equals the size written to disk**, non-zero exit when the budget is unreachable; `convert_assets_to_jpg`: converts only what should be converted, keeps originals by default, `--skip`, `--delete-originals`, `--dry-run`, symlink retargeting |
+| `test_request.py` | Stubs `requests.post`: endpoint, fields, types, and the presence/absence of SSE and `quality` for the three request shapes (multipart edits / JSON generations / JSON `image` array) |
+| `test_contracts.py` | Cross-file contracts: every provider has a profile, PROVIDERS fields are read, scripts↔SKILL.md consistency, no real user paths in committed files |
+| `test_semantics.py` | Existing semantics regressions: mask_editor saves alpha, bbox threshold, generate exit code, `--size` required, compress/convert default behavior |
+| `test_hygiene.py` | Resources and cleanup: leftover temp dirs/workspaces, port release, exit 1 on failure paths |
 
-## 浏览器 E2E（真实 Chromium）
+## Browser E2E (real Chromium)
 
-| 文件 | 作用 |
+| File | Role |
 |---|---|
-| `run_e2e.py` | 编排：跑离线单测 → 起服务端（自动选空闲端口）→ 跑浏览器断言 → 校验蒙版 |
-| `e2e_server.py` | 无头启动 `mask_editor` 的 HTTP 服务（**把 `webbrowser.open` 换成 no-op，绝不弹出真实窗口**） |
-| `e2e.js` | playwright 交互断言（条数以 e2e.js 为准） |
-| `verify_mask.py` | 保存后蒙版：尺寸、bbox 比例、内外 alpha、覆盖率 + `bbox_from_mask.py` 集成 |
+| `run_e2e.py` | Orchestration: run offline unit tests → start the server (auto-select a free port) → run browser assertions → verify the mask |
+| `e2e_server.py` | Starts `mask_editor`'s HTTP service headlessly (**replaces `webbrowser.open` with a no-op, never pops up a real window**) |
+| `e2e.js` | playwright interaction assertions (counts are defined by e2e.js) |
+| `verify_mask.py` | Mask after save: size, bbox ratio, inside/outside alpha, coverage + `bbox_from_mask.py` integration |
 
-覆盖：绘制 → 比例锁 → 拖角/拖边/拖框内 → 数值输入（H 随比例推导、锁定禁用）→ **输入框聚焦时方向键被吞**（防打字变移框）→ 方向键微调（框 1px / Shift 10px；点手柄后推拉该边）→ Esc 取消手柄 → Ctrl+Z 撤销 → Ctrl+滚轮缩放 / 中键平移 / 适配 → 椭圆同一套比例锁 → 保存 → 蒙版校验。
+Coverage: draw → ratio lock → drag corner/edge/inside-box → numeric input (H derived from ratio, lock disabled) → **arrow keys swallowed while an input is focused** (prevents typing from moving the box) → arrow-key nudge (box 1px / Shift 10px; after clicking a handle, push/pull that edge) → Esc cancels the handle → Ctrl+Z undo → Ctrl+wheel zoom / middle-button pan / fit → ellipse uses the same ratio lock → save → mask verification.
 
-## 已知边界
+## Known limits
 
-- `e2e.js` 的坐标容差按 `1 / view.k` 缩放（屏幕取整会把误差放大到图内像素）。
-- Chromium 约 115MB，只在 `ms-playwright` 本机缓存，不随仓库提交。
-- 离线单测之间互不依赖，可单独 `python test_xxx.py` 运行。
+- `e2e.js`'s coordinate tolerance scales with `1 / view.k` (screen rounding amplifies the error up to in-image pixels).
+- Chromium is ~115MB, cached only locally in `ms-playwright`, and is not committed with the repo.
+- Offline unit tests are independent of each other and can each be run separately with `python test_xxx.py`.

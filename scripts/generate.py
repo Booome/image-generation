@@ -16,7 +16,7 @@ import requests
 PROVIDERS = {
     "infistar": {
         "base": "https://infistar.cc/v1",
-        "env_key": "INFINISTAR_API_KEY",
+        "env_key": "INFISTAR_API_KEY",
         "generations_path": "/images/generations",
         "edits_path": "/images/edits",
         "edit_format": "multipart",

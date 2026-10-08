@@ -1,41 +1,41 @@
-# 坐标框选编辑（Seedream 5.0 Pro 交互编辑）
+# Coordinate-box Edit (Seedream 5.0 Pro interactive edit)
 
-> 适用：需要对**已生成的图**做局部修改（换/加/改某处），又不希望整图重画时。
-> 实测渠道：`volcengine` · `doubao-seedream-5-0-pro-260628`（2026-09-25 实测生效）。
+> Applies when: you need to make a local modification to an **already generated image** (replace/add/change some spot) without repainting the whole image.
+> Tested channel: `volcengine` · `doubao-seedream-5-0-pro-260628` (verified working on 2026-09-25).
 
-## 机制（关键：没有 API 字段）
+## Mechanism (the key: there is no API field)
 
-Seedream 的"交互编辑"**不是** API 参数，而是**写在 prompt 文本里的归一化坐标**：
+Seedream's "interactive edit" is **not** an API parameter, but **normalized coordinates written in the prompt text**:
 
-- 格式：`Image N x1 y1 x2 y2`（N = 参考图序号，从 1 起）；点选则为 `Image N x y`。
-- 坐标范围 **0–999**，左上角 `0 0`、右下角 `999 999`；换算 `x = round(x_px / width * 1000)`。
-- 官方示例：`Replace the area Image 1 120 180 640 760 with a garden.`
-- 若在图上**画了标记**（框/箭头/涂鸦）再上传，**必须**在 prompt 里写"移除所有草图线条"，否则标记会被当画面元素渲染。
+- Format: `Image N x1 y1 x2 y2` (N = reference-image index, starting from 1); for a point selection it is `Image N x y`.
+- Coordinate range **0–999**, top-left `0 0`, bottom-right `999 999`; convert with `x = round(x_px / width * 1000)`.
+- Official example: `Replace the area Image 1 120 180 640 760 with a garden.`
+- If you **draw marks** on the image (box/arrow/doodle) before uploading, you **must** write "remove all sketch lines" in the prompt, otherwise the marks are rendered as image elements.
 
-## 配套流程
+## Companion workflow
 
-1. 用 `scripts/mask_editor.py` 打开底图，框选目标区域（工具条上的比例锁可直接锁 `16:9`/`1:1` 等，锁死后绘制与拖手柄都按该比例；保存时关掉「羽化」得到精确边界）。**多个不连续区域可叠加**——每画一个矩形/椭圆/画笔都是一个独立选区，右侧「选区列表」可点选、可单独删除（`Delete` 键或「删除选中」），`Ctrl+Z` 逐步撤销。注意 `bbox_from_mask.py` 取的是**所有选区的并集外接框**，所以坐标编辑场景只框一个区域最干净；
-2. 用 `scripts/bbox_from_mask.py` 把蒙版反解为归一化坐标；
-3. 把坐标写进 prompt，配合"改什么 / 保持什么不变"的指令（见下方「prompt 写法模板」）；
-4. 用 `volcengine` 出图（注意：此路径下 `size` 必须与底图同画幅）。
+1. Use `scripts/mask_editor.py` to open the base image and box-select the target region (the aspect-ratio lock on the toolbar can directly lock `16:9`/`1:1` etc.; once locked, both drawing and dragging handles follow that ratio; turn off "feather" when saving to get an exact boundary). **Multiple discontinuous regions can be stacked** — each rectangle/ellipse/brush you draw is an independent selection, and the "selection list" on the right lets you click-select, delete individually (`Delete` key or "delete selected"), and step-undo with `Ctrl+Z`. Note that `bbox_from_mask.py` takes the **bounding box of the union of all selections**, so for a coordinate-edit scenario boxing just one region is cleanest;
+2. Use `scripts/bbox_from_mask.py` to reverse-solve the mask into normalized coordinates;
+3. Write the coordinates into the prompt, together with the "what to change / what to keep unchanged" instruction (see "prompt writing template" below);
+4. Generate with `volcengine` (note: on this path `size` must match the base image's canvas).
 
-## 实测结论（2026-09-25）
+## Tested conclusions (2026-09-25)
 
-- ✅ **坐标框选生效**：指定区域外的内容（门、山体、通道、光影、构图）**保持不变**。
-- ⚠️ **"等比缩放"执行不完全**：`把区域内两只兽整体缩小到 1/2` 的指令，模型做了局部重绘、兽**有明显缩小但未精确减半**，且目标物的**姿态可能被改写**（幼兽由"叼钢筋后坐拉扯"变成"站立嗅探"）。
-- 结论：**该能力擅长"区域内替换 / 重绘 / 新增"，不擅长"精确等比缩放"**。
-  - 需要精确缩放 → 走**合成法**（本地缩放贴图），或先缩放参考再编辑。
-  - 用坐标框时，**把目标形态与姿态一并写清**（当作"在该区域重画一个 X"），比写"把 X 缩小/移动"更可靠。
+- ✅ **Coordinate-box selection works**: content outside the specified region (door, mountain body, passage, light and shadow, composition) **stays unchanged**.
+- ⚠️ **"Proportional scaling" is executed incompletely**: for the instruction `shrink both beasts in the region to 1/2 overall`, the model did a local repaint, the beasts were **noticeably smaller but not exactly halved**, and the target objects' **pose may be rewritten** (the cub went from "biting rebar and pulling back while seated" to "standing and sniffing").
+- Conclusion: **this capability is good at "replace / repaint / add within a region", not at "precise proportional scaling"**.
+  - Need precise scaling → use the **compositing method** (locally scaled texture), or scale the reference first and then edit.
+  - When using a coordinate box, **write the target form and pose together clearly** (treat it as "repaint an X in this region"), which is more reliable than writing "shrink/move X".
 
-## prompt 写法模板
+## Prompt writing template
 
 ```
-【交互编辑指令 · 核心】
-在 Image 1 <x1> <y1> <x2> <y2> 这块区域内，<改动描述>（把目标形态、姿态、比例一并写清）。
-缩小/改动腾出的空间用原本的 <地面/岩壁/背景> 自然补上。
+【Interactive edit instruction · core】
+Within the region Image 1 <x1> <y1> <x2> <y2>, <change description> (write the target form, pose, and proportions together clearly).
+Fill the space freed by the shrink/change naturally with the original <ground/rock wall/background>.
 
-【保持不变 · 硬约束】
-该区域以外的所有内容严格保持不变：<主体结构、光影、构图、机位、画幅>。
+【Keep unchanged · hard constraint】
+All content outside this region stays strictly unchanged: <subject structure, light and shadow, composition, camera position, canvas>.
 
-【硬排除】无文字、无水印、无草图线条。
+【Hard exclusions】no text, no watermark, no sketch lines.
 ```

@@ -1,68 +1,68 @@
-# 提示词完整性清单（prompt-checklist）
+# Prompt Completeness Checklist (prompt-checklist)
 
-> 用途：出图前逐段检查提示词。任何一段缺失，先补齐再进参数确认。
-> 根因：对话里定过的约束，模型和未来的会话都不会替你记住——遗漏即生成事故。
+> Purpose: check the prompt section by section before generating. If any section is missing, fill it in before moving to parameter confirmation.
+> Root cause: constraints settled in conversation are not remembered for you by the model or by future sessions — an omission becomes a generation accident.
 
-## 八段结构
+## Eight-section structure
 
-1. **素材域声明**：本体还是场景、单张全景还是组合图、排除什么环境。
-2. **主体描述**：本次主体的有据特征（**仅无参考图时**）；**有参考图时不写任何外形描述**（见下方「两条提示词纪律」），只留参考图管不到的状态变化（如开合状态）。
-3. **比例锁死段**：已定比例数据换算成构图语言——**形状词优先**（近正方形、横向宽矩形），倍数与画面占比兜底（总宽约为总高 N 倍、人头顶落在门高 N% 处），并给反向排除（不得画成蚂蚁大小）。
-4. **结构与开合方式段**：可动结构必须显式写运动方式（水平平移/旋转/垂直提升……），并给出反例禁令（不旋转、不绕轴、不向外翻开、不向上提升）。**历史事故：漏写开合方式会导致反复生成错误可动结构——把你项目踩过的坑记入工程档案「结构与开合方式」节。**
-5. **画风段**：**按场景判定是否必写**——
-   - **必写**：从零生图 / 重绘式放大（高清化）/ 换姿态换外观 / 多图合成重绘。这四类都会让模型重画，不钉画风就漂。
-   - **可省**：纯蒙版局部重绘、以及只改一处小地方的轻微编辑——底图自带画风，改动范围小、漂移风险低。
-   内容只写**渲染语言 + 光照与饱和度基调 + 负向**；具体模板来自工程档案 `.image-generation/profile.md` 的「画风」节（示例见 `references/profile.example.md`）；无档案时按这三要素自行拟定。
-   **材质不写进本段**：材质随素材变化，写进各自素材的提示词（本段只定渲染语言，列材质必然挂一漏万）。
-   **不做统一色卡**：颜色以参考图 / 既有素材的色调为准（同一项目里不同场景 / 素材各有色调，统一会失真）。
-6. **版式**：组合图只写**必要内容项 + 可发挥项**，不锁死分格数（历史事故记入工程档案「版式约定」节）；或单张全景的前中远景深层次。
-7. **排除项**：按本单需要列（无人/无生物/无文字/无环境/无分格线……）。
-8. **负向词**：至少包含通用底线——比例失调、主体过小、分格拼贴、文字水印；项目专属负向词（历史踩过的坑）来自工程档案 `.image-generation/profile.md` 的「负向词」节（示例见 `references/profile.example.md`）。
+1. **Asset-domain declaration**: character or scene, single panorama or composite image, what environment is excluded.
+2. **Subject description**: grounded features of this subject (**only when there is no reference image**); **when there is a reference image, write no shape description at all** (see "Two prompt disciplines" below), keeping only state changes the reference image cannot cover (e.g. opening state).
+3. **Aspect-ratio lock section**: convert settled aspect-ratio data into compositional language — **shape words first** (near-square, wide horizontal rectangle), with multiples and frame share as fallback (total width about N times total height; the top of the head falls at N% of the door height), plus a reverse exclusion (must not be drawn ant-sized).
+4. **Structure and opening-mechanism section**: movable structures must explicitly state the motion (horizontal translation/rotation/vertical lift...), and give counter-example prohibitions (does not rotate, does not pivot, does not swing outward, does not lift up). **Historical accident: omitting the opening mechanism leads to repeated generations of a wrong movable structure — record the pitfalls your project has hit in the "structure and opening mechanism" section of the project record.**
+5. **Art-style section**: **decide per scene whether it is mandatory** —
+   - **Mandatory**: generating from scratch / repaint-style upscaling (HD enhancement) / changing pose or appearance / multi-image composite repaint. All four make the model repaint, so if the art style is not pinned it drifts.
+   - **Optional**: pure mask local repaint, and slight edits that change only one small spot — the base image carries its own art style, the change scope is small, and drift risk is low.
+   Write only **rendering language + lighting and saturation tone + negative**; the concrete template comes from the "art style" section of the project record `.image-generation/profile.md` (example in `references/profile.example.md`); with no record, draft it yourself from these three elements.
+   **Material is not written in this section**: material varies per asset, so write it into each asset's own prompt (this section defines only rendering language; listing materials is bound to miss some).
+   **No unified color card**: color follows the tone of the reference image / existing assets (different scenes / assets in one project each have their own tone; unifying them distorts).
+6. **Layout**: for composite images write only **necessary content items + free-play items**, do not lock the cell count (record historical accidents in the "layout conventions" section of the project record); or, for a single panorama, the foreground/midground/background depth layers.
+7. **Exclusions**: list per this order's needs (no people/no creatures/no text/no environment/no grid lines...).
+8. **Negative words**: at minimum include the general baseline — distorted proportions, subject too small, grid collage, text watermark; project-specific negative words (pitfalls hit before) come from the "negative words" section of the project record `.image-generation/profile.md` (example in `references/profile.example.md`).
 
-## 两条提示词纪律（已实测）
+## Two prompt disciplines (already tested)
 
-1. **有参考图时，提示词里不再写外形描述。**
-   外形 / 结构 / 材质等由参考图提供，正文**不出现**对它们的文字描述。
-   正文只写参考图给不了的信息：状态、动作、朝向、背景、画风、排除项。
-   原因：逐条文字描述会与参考图竞争，模型可能按文字重画「符合描述的平均体」，导致主体漂移。
-   （**不是**写一句「外形照图1、不另外描述」——那句仍是多余的叙述，直接不写即可。）
+1. **When there is a reference image, write no shape description in the prompt.**
+   Shape / structure / material etc. are provided by the reference image; the body text **must not** contain textual descriptions of them.
+   The body text writes only information the reference image cannot give: state, action, orientation, background, art style, exclusions.
+   Reason: item-by-item textual description competes with the reference image; the model may repaint an "average body that matches the description", causing subject drift.
+   (**Not** writing a line like "for shape follow image 1, do not describe separately" — that line is still redundant narration; simply do not write it.)
 
-2. **提示词只包含出图所需的画面描述，其余一律不写。**
-   「生成一张…」「做成一张…」「以图X为依据」「本单任务是…」等对**生成行为或流程的叙述**，
-   对模型出图没有作用，不得写进提示词——它们属于对话/文档里的说明。
-   参考图直接用「图1 / 图2」指代，不需要「以图1为依据」这类交代。
+2. **The prompt contains only the image description needed for generation; write nothing else.**
+   "Generate a...", "make it a...", "based on image X", "this task is..." and other **narrations of the generation behavior or process**
+   have no effect on the model's output and must not be written into the prompt — they belong to the explanation in the conversation/document.
+   Refer to reference images directly as "image 1 / image 2"; no need for a preamble like "based on image 1".
 
-## 已定设计决策——查证来源
+## Settled design decisions — verification sources
 
-讨论定过的内容必须进提示词，按下表查证：
+Content settled in discussion must go into the prompt; verify it against the table below:
 
-> 具体路径以工程档案 `.image-generation/profile.md` 的「已定决策查证来源」节为准（示例见 `references/profile.example.md`）。
+> Concretely, the path follows the "settled-decision verification sources" section of the project record `.image-generation/profile.md` (example in `references/profile.example.md`).
 
-| 决策类型 | 查哪里 |
+| Decision type | Where to check |
 |---|---|
-| 比例 / 尺寸 | 你项目的尺寸 / 比例规格文档 |
-| 形象特征 / 锚点卡 | 你项目的角色 / 设定资料 |
-| 结构与开合方式 | 你项目的设定文本（有据）；对话中用户拍板的（须同时核对设定是否已同步） |
-| 正反面特征、本体/场景域分工 | 对话拍板记录；你项目的素材规范 |
-| 参考图分工 | 用户指定哪张参考图管什么（外观/结构/比例） |
+| Aspect ratio / size | Your project's size / aspect-ratio spec document |
+| Shape features / anchor card | Your project's character / setting material |
+| Structure and opening mechanism | Your project's setting text (grounded); what the user decided in conversation (must also check whether the setting has been synced) |
+| Front/back features, character/scene domain division | Conversation decision records; your project's asset spec |
+| Reference-image division | Which reference image the user assigned to govern what (appearance/structure/aspect ratio) |
 
-**有据 vs 推断**：工程文本没有、靠推理补的细节（如啮合机构形态），在提示词里标注「推断项」，不混充设定。
+**Grounded vs inferred**: details that are not in the project text and are filled in by reasoning (e.g. the form of a meshing mechanism) are marked as "inferred item" in the prompt, not passed off as setting.
 
-## 输出前自检
+## Pre-output self-check
 
-- 提示词**自包含**：脱离对话单独看，仍含全部已定约束？
-- 有参考图时，文字是否与参考图的内容冲突？→ 删冲突描述（外形交由参考图）。
-- 八段齐全、负向词含本素材踩过的坑？
-- 有参考图时，正文是否**残留了外形描述句**？→ 删。
-- 是否混入了「生成一张…/以图X为依据」等非画面描述？→ 删。
-- 逐句问：这句是在描述「**画面里长什么样**」吗？不是 → 删。
+- Is the prompt **self-contained**: viewed alone apart from the conversation, does it still contain all settled constraints?
+- With a reference image, does the text conflict with the reference image's content? → delete the conflicting description (shape is left to the reference image).
+- Are all eight sections present, and do the negative words include pitfalls this asset has hit?
+- With a reference image, does the body text **retain a shape-description sentence**? → delete.
+- Is any non-image description mixed in, such as "generate a.../based on image X"? → delete.
+- Ask of each sentence: does this describe "**what it looks like in the image**"? If not → delete.
 
-## 官方 prompting 铁律（来源：heyroute 官方 skill 仓库的 `image-gen/references/prompting.md`，非本目录文件）
+## Official prompting iron rules (source: the `image-gen/references/prompting.md` of the heyroute official skill repo, not a file in this directory)
 
-- **结构顺序**：场景/背景 → 主体 → 细节（材质/光线/配色）→ 约束（必须保留 / 禁止出现）。
-- **改图必须显式列不变量**：「只改 X；Y、Z 保持不变」，**每一轮迭代重复**，防漂移；**一次只改一处**。
-- 用户描述已具体就只规整不加戏；很泛才补构图/光线/用途，不添加用户没暗示的元素。
-- 说明用途；写实照片用相机语言（焦段/景别/光线）。
-- 图内文字用引号逐字给出并指定位置；文字多必乱，能不放就不放。
-- `n` 恒为 1：多素材 = 多次调用，别指望一次出全套。
-- 图标/线框/矢量类素材别生图，直接写 SVG/CSS 更可控。
+- **Structural order**: scene/background → subject → details (material/light/color scheme) → constraints (must keep / must not appear).
+- **Image editing must explicitly list invariants**: "change only X; keep Y, Z unchanged", **repeated on every iteration round**, to prevent drift; **change only one spot at a time**.
+- If the user's description is already specific, just tidy it and do not add drama; only when it is very vague, fill in composition/lighting/purpose, and do not add elements the user did not imply.
+- State the purpose; for photorealistic photos use camera language (focal length / shot size / light).
+- Give in-image text verbatim in quotes and specify its position; lots of text is bound to be messy, so leave it out when possible.
+- `n` is always 1: multiple assets = multiple calls, do not expect a full set in one go.
+- Do not generate icon/wireframe/vector assets; writing SVG/CSS directly is more controllable.

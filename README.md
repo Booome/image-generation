@@ -1,34 +1,34 @@
 # image-generation
 
-多厂商图片生成工作流技能（面向支持 `SKILL.md` 约定的编码 agent：OpenCode / WorkBuddy(CodeBuddy) / Claude Code 等）。
+Multi-provider image generation workflow skill (for coding agents that follow the `SKILL.md` convention: OpenCode / WorkBuddy(CodeBuddy) / Claude Code, etc.).
 
-把「提示词完整性检查 → 参数平铺确认 → 脚本下单 → 交付核对」固化为一套可复用技能，支持：
+It consolidates "prompt completeness check → parameter flattening confirmation → script ordering → delivery verification" into a reusable skill that supports:
 
-- 多厂商统一入口（HeyRoute / Infistar / APIYi / 火山方舟），SSE 与 OpenAI 兼容 JSON 两种协议自动分流；
-- 参考图（multipart edits / JSON base64 数组）与 mask 局部重绘；
-- 浏览器蒙版编辑器（矩形 / 椭圆 / 多边形 / 画笔 / 橡皮、多选区、比例锁、撤销）；
-- 完整测试：离线单测 + 浏览器 E2E + mutation 守门器。
+- A unified multi-provider entry point (HeyRoute / Infistar / APIYi / Volcengine Ark), with automatic routing between two protocols: SSE and OpenAI-compatible JSON;
+- Reference images (multipart edits / JSON base64 arrays) and mask-based local repainting;
+- Browser mask editor (rectangle / ellipse / polygon / brush / eraser, multiple selections, aspect-ratio lock, undo);
+- Full testing: offline unit tests + browser E2E + mutation gate.
 
-## 安装
+## Installation
 
-本仓库根目录即技能目录。把整个仓库放到目标 harness 的 skills 目录（目录名保持 `image-generation`）即可：
+The repository root is the skill directory. Simply place the entire repository into the target harness's skills directory (keeping the directory name `image-generation`):
 
 ```bash
 git clone --depth 1 <repo-url> <skills-dir>/image-generation
 ```
 
-| harness | 项目级 skills 目录 | 用户级 |
+| harness | project-level skills directory | user-level |
 |---|---|---|
 | OpenCode | `.opencode/skills/` | - |
 | WorkBuddy | `.workbuddy/skills/` | `~/.workbuddy/skills/` |
 | CodeBuddy | `.codebuddy/skills/` | `~/.codebuddy/skills/` |
 | Claude Code | `.claude/skills/` | `~/.claude/skills/` |
 
-也可用 git submodule 方式引入。
+It can also be imported as a git submodule.
 
-## 项目定制层（可选）
+## Project customization layer (optional)
 
-通用库只含中性默认。把你的项目专属内容（默认规格 / 输出命名 / 画风模板 / 负向词 / 历史事故 / 决策来源）写进工程侧档案 `.image-generation/profile.md`：
+The generic library contains only neutral defaults. Put your project-specific content (default specs / output naming / art style templates / negative words / historical incidents / decision sources) into the project-side profile `.image-generation/profile.md`:
 
 ```bash
 mkdir -p .image-generation
@@ -36,18 +36,18 @@ cp <skills-dir>/image-generation/references/profile.example.md .image-generation
 # 编辑 .image-generation/profile.md
 ```
 
-- 档案随**工程**入库，与技能安装位置无关，也不随技能更新被覆盖。
-- 可用环境变量 `IMAGE_GENERATION_PROFILE` 指定其他路径。
-- 读取顺序：SKILL.md 通用默认 → 工程档案优先。
+- The profile is committed with the **project**, independent of where the skill is installed, and is not overwritten by skill updates.
+- You can use the environment variable `IMAGE_GENERATION_PROFILE` to specify another path.
+- Read order: SKILL.md generic defaults → project profile takes precedence.
 
-## 依赖
+## Dependencies
 
-- Python 3.10+，`pip install -r requirements.txt`（`requests`、`Pillow`）
-- 仅跑浏览器 E2E 时另需 Node + Playwright（见 `tests/README.md`）
+- Python 3.10+, `pip install -r requirements.txt` (`requests`, `Pillow`)
+- Running browser E2E additionally requires Node + Playwright (see `tests/README.md`)
 
-## 快速开始
+## Quick start
 
-先设置对应厂商的 API key 环境变量（见表），再调用：
+First set the API key environment variable for the corresponding provider (see the table), then call:
 
 ```bash
 export HEYROUTE_API_KEY=...
@@ -60,24 +60,24 @@ python scripts/generate.py \
   --out out.jpg
 ```
 
-`--provider` 与 `--size` 均为必填（CLI 层必填；工作流默认值可来自工程档案）。查看全部参数：`python scripts/generate.py --help`。
+`--provider` and `--size` are both required (required at the CLI layer; workflow defaults may come from the project profile). To view all parameters: `python scripts/generate.py --help`.
 
-## 支持的厂商
+## Supported providers
 
-| 厂商 (`--provider`) | 环境变量 | 端点/协议 | 档案 |
+| provider (`--provider`) | environment variable | endpoint/protocol | profile |
 |---|---|---|---|
 | `heyroute` | `HEYROUTE_API_KEY` | SSE | `references/providers/heyroute.md` |
-| `infistar` | `INFINISTAR_API_KEY` | OpenAI 兼容 JSON | `references/providers/infistar.md` |
-| `apiyi` | `APIYI_API_KEY` | OpenAI 兼容 JSON | `references/providers/apiyi.md` |
-| `volcengine` | `ARK_API_KEY` | OpenAI 兼容 JSON | `references/providers/volcengine.md` |
+| `infistar` | `INFISTAR_API_KEY` | OpenAI-compatible JSON | `references/providers/infistar.md` |
+| `apiyi` | `APIYI_API_KEY` | OpenAI-compatible JSON | `references/providers/apiyi.md` |
+| `volcengine` | `ARK_API_KEY` | OpenAI-compatible JSON | `references/providers/volcengine.md` |
 
-> 各厂商档案记录了实测行为与已知问题；部分模型标注为「未验证」，使用前请先小参数验证。
+> Each provider profile records measured behavior and known issues; some models are marked "unverified", so validate with small parameters before use.
 
-## 计费提醒
+## Billing reminder
 
-生图会**计费**。本 skill 的工作流强制「先列出该单完整参数并经用户确认，再发起计费请求」，并禁止批量测试。请始终遵守 `SKILL.md` 的确认门。
+Image generation is **billed**. This skill's workflow enforces "first list the complete parameters of the order and obtain user confirmation, then issue the billed request", and forbids batch testing. Always follow the confirmation gate in `SKILL.md`.
 
-## 目录结构
+## Directory structure
 
 ```
 SKILL.md        agent 读取的入口（工作流 + 核心规则）
@@ -87,7 +87,7 @@ scripts/        generate.py（下单）、mask_editor.py（蒙版）、bbox_from
 tests/          离线单测 + 浏览器 E2E + mutation 守门器 + fixtures
 ```
 
-## 测试
+## Tests
 
 ```bash
 python tests/run_e2e.py --unit-only      # 离线单测（零网络零费用）
