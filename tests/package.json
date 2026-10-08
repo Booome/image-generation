@@ -1,0 +1,11 @@
+{
+  "name": "image-generation-tests",
+  "private": true,
+  "description": "Headless E2E for scripts/mask_editor.py (run via tests/run_e2e.py)",
+  "scripts": {
+    "e2e": "node e2e.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}
