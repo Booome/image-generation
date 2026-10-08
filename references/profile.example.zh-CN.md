@@ -4,6 +4,11 @@ default_provider: heyroute
 default_model: gpt-image-2
 default_size: "16:9 1K"
 output_naming: "assets/scratch/YYYYMMDD-HHMMSS-<slug>.jpg"
+# 宿主级配置（仅当裸 `python` 缺 requests+Pillow 时才需要）
+# 指向一个装了本 skill 依赖的解释器的绝对路径。
+# 优先级：环境变量 IMAGE_GENERATION_PYTHON > 本字段 > 裸 `python`
+# 例：python: "C:/Users/<you>/.venvs/imagegen/Scripts/python.exe"
+# python: ""
 ---
 
 # 项目档案示例（中性）

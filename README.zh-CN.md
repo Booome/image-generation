@@ -27,6 +27,12 @@ git clone --depth 1 <repo-url> <skills-dir>/image-generation
 
 也可用 git submodule 方式引入。
 
+## 宿主适配
+
+本 skill 最初为 OpenCode 编写。换到其他 harness 后有几处**会静默失效**的差异：工作目录变成**工程根**而不是技能目录；shell 是外部进程；**以 `-NoProfile -NonInteractive` 启动 shell 的 harness（WorkBuddy / CodeBuddy）读不到你在交互式 shell 里 `export` 的 key**——需用宿主 env 机制、`.image-generation/keys.env` 或 Windows 用户级注册表投递（会加载 profile 的环境如 OpenCode 无此问题）。
+
+遇到「终端里能跑、agent 里跑不了」时，先看 `SKILL.md` 的「宿主适配」段（脚本绝对路径、解释器解析、密钥投递、mask_editor 后台化）。
+
 ## 项目定制层（可选）
 
 通用库只含中性默认。把你的项目专属内容（默认规格 / 输出命名 / 画风模板 / 负向词 / 历史事故 / 决策来源）写进工程侧档案 `.image-generation/profile.md`：

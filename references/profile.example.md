@@ -4,6 +4,11 @@ default_provider: heyroute
 default_model: gpt-image-2
 default_size: "16:9 1K"
 output_naming: "assets/scratch/YYYYMMDD-HHMMSS-<slug>.jpg"
+# Harness-level (only needed when bare `python` lacks requests+Pillow).
+# Absolute path to an interpreter that has the skill's dependencies.
+# Precedence: env var IMAGE_GENERATION_PYTHON > this key > bare `python`.
+# Example: python: "C:/Users/<you>/.venvs/imagegen/Scripts/python.exe"
+# python: ""
 ---
 
 # Project Profile Example (Neutral)

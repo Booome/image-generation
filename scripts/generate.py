@@ -231,12 +231,37 @@ def die(msg, code=1):
     sys.exit(code)
 
 
-def read_env(name):
-    """Read env var from process env, falling back to Windows User env (registry).
+def _read_keys_file(name):
+    """Read one K=V key from an optional plain-text keys file.
 
-    User-scope variables are not inherited by already-running hosts, so the
-    registry fallback makes keys persisted via [Environment]::SetEnvironmentVariable
-    immediately usable in any new shell/tool invocation.
+    Lets a harness with no env-delivery mechanism pick up keys by copying one
+    file. Path is $IMAGE_GENERATION_KEYS_FILE, defaulting to
+    .image-generation/keys.env (relative to the working directory). Lines are
+    `NAME=VALUE` (no `export`); `#` starts a comment. Values are never echoed.
+    """
+    path = os.environ.get("IMAGE_GENERATION_KEYS_FILE") or str(
+        Path(".image-generation") / "keys.env")
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, _, val = line.partition("=")
+        if k.strip() == name:
+            return val.strip().strip('"').strip("'")
+    return ""
+
+
+def read_env(name):
+    """Read an env var: process env -> optional keys file -> Windows User registry.
+
+    User-scope registry variables are not inherited by already-running hosts, so
+    the registry fallback makes keys persisted via
+    [Environment]::SetEnvironmentVariable usable in any new shell. The keys file
+    is the last resort for harnesses that deliver neither.
     """
     v = os.environ.get(name)
     if v:
@@ -246,10 +271,11 @@ def read_env(name):
             import winreg
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Environment") as key:
                 val, _ = winreg.QueryValueEx(key, name)
-                return (val or "").strip()
+                if val:
+                    return val.strip()
         except OSError:
-            return ""
-    return ""
+            pass
+    return _read_keys_file(name)
 
 
 def resolve_provider(name, model=None):

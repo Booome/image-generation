@@ -1190,7 +1190,13 @@ def main():
     port = srv.server_address[1]
     url = f"http://127.0.0.1:{port}/"
     print(f"[mask_editor] open {url}  ->  save to {out_path}", flush=True)
-    webbrowser.open(url)
+    try:
+        webbrowser.open(url)
+    except Exception:
+        # Headless / remote / sandboxed session: opening may fail silently or
+        # raise. The URL above is printed unconditionally, so hand it to the
+        # user instead of treating this as a failure.
+        pass
     srv.serve_forever()
 
 

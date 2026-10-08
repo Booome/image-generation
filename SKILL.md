@@ -17,6 +17,34 @@ allowed-tools: Read, Write, Bash
 - 中性示例见本 skill 的 `references/profile.example.md`（不代表任何真实项目）。
 - 档案位于工程侧、随工程入库；本 skill 仓库不含该文件。
 
+## 宿主适配（WorkBuddy / CodeBuddy / Claude Code / OpenCode）
+
+通用工作流不变，但**换 harness 后有几处硬差异，每单都要遵守**（原版在 OpenCode 下写作，那里 cwd 恰好等于 skill 目录）：
+
+1. **脚本一律用绝对路径调用**。多数 harness（WorkBuddy / CodeBuddy / Claude Code）的工作目录是**工程根**或会话目录，不是本 skill 目录——照抄 `python scripts/generate.py` 会直接「can't open file」。正确做法：把**本 SKILL.md 所在目录**作为 `<SKILL_ROOT>`，再拼绝对路径。
+
+```bash
+"<PYTHON>" "<SKILL_ROOT>/scripts/generate.py" --provider heyroute --size "1:1 1K" \
+  --prompt-file prompt.txt --out "<工程内输出路径>/xxx.jpg"
+```
+
+   **只有 `--out` / `--image` / `--mask` / `--prompt-file` 走工程侧路径，脚本本体永远走 `<SKILL_ROOT>/scripts/`。**
+
+2. **解释器必须带依赖**（`requests` + `Pillow`，见 `requirements.txt`）。按以下顺序解析 `<PYTHON>`，**取第一个 `-c "import requests, PIL"` 能通过的解释器**：
+   - 环境变量 `IMAGE_GENERATION_PYTHON`（跨 harness 通用，推荐）
+   - 工程档案 `.image-generation/profile.md` frontmatter 的 `python` 字段（示例见 `references/profile.example.md`）
+   - 裸 `python`
+   三者都缺依赖时：**不要擅自 pip install 到系统 Python**，向用户报告并给出在 venv 里 `pip install -r "<SKILL_ROOT>/requirements.txt"` 的指引。
+
+3. **`mask_editor.py` 会长期占住前台**（`serve_forever()`，保存成功后约 1 秒自行 shutdown）。因此：
+   - 必须**以后台方式启动**（后台任务或 `&`），否则这次工具调用会一直不返回；
+   - 启动后它自己会尝试 `webbrowser.open()`；若当前环境拉不起浏览器（远程会话 / 沙箱 / 无 GUI），**把打印出来的 `http://127.0.0.1:<port>/` 交给用户手动打开**，不要因此判定失败；
+   - 只监听 `127.0.0.1`，端口被占会自动退到 `port+1`。
+
+4. **输出编码**：第 1 层（脚本内 `configure_stdio()`）在任何 harness 下都成立；第 2 层（`opencode-windows-encoding` 插件）是 OpenCode 专属加分项，其他 harness 没有它不影响任何功能。
+5. **密钥投递**：`read_env()` 依次读「进程环境 → 工程侧 `.image-generation/keys.env`（可选）→ Windows 用户级注册表」。**以 `-NoProfile -NonInteractive` 启动 shell 的 harness（如 WorkBuddy / CodeBuddy）读不到交互式 shell（PowerShell profile）里 `$env:` 设的值**——这类 harness 需用宿主 env 机制（如 `settings.json` 的 `env`）、`keys.env` 或注册表投递；会加载 profile 的环境（如 OpenCode）则无此问题。**变量存在但值为空 = 未配置**。
+   - `keys.env` 为纯文本 `NAME=VALUE`（无 `export`，`#` 注释），默认路径 `.image-generation/keys.env`，可用环境变量 `IMAGE_GENERATION_KEYS_FILE` 改路径；**该文件不要入库**。
+
 ## 工作流程
 
 1. **确定厂商**：默认取工程档案 `.image-generation/profile.md` 的 `default_provider`（无档案或未配置时为 `heyroute`）；用户点名其他厂商时查 `references/providers/<厂商>.md`——**没有档案就先建档案再下单**（建档步骤见下）。
@@ -26,7 +54,7 @@ allowed-tools: Read, Write, Bash
 4. **下单**：
 
 ```bash
-python scripts/generate.py \
+"<PYTHON>" "<SKILL_ROOT>/scripts/generate.py" \
   --provider heyroute \
   --model gpt-image-2 \
   --size "16:9 1K" \
@@ -42,7 +70,7 @@ python scripts/generate.py \
    - **两层兼容**：插件注入 `PYTHONIOENCODING=utf-8` 时 `configure_stdio()` 走早退，结果仍为 UTF-8（实测共存无冲突）。
    - 每单同时落盘 `<输出名>.result.json`（UTF-8），控制台万一被宿主编码破坏时以该文件为准。
 
-   `--size` 接受 `WIDTHxHEIGHT` 或口语档位（`3:2 1K`、`4K 3:2`——短边=1024×K、精确比例、16 倍数、超限自动钳制并回显；**`auto` 被硬禁**）。**`WIDTHxHEIGHT` 只做长边/比例/像素窗校验，不做 16 倍数校验——奇数边长（如 infistar 实测的 `1672x941`）直接原样交给 API 判断**；档位换算仍按 16 倍数步长算出整齐尺寸。`--quality` 默认 `high`（heyroute 白名单必传项；模型若在 `models` 覆盖表声明 `default_quality: null` 则整条省略）。参考图传递：无 `--image` 走 generations；带 `--image` 默认走 edits（多图重复 `image` 字段），**模型若声明 `edit_format: json_images`（如 seedream）则改为把参考图以 base64 放进 generations 的 JSON `images` 数组**。**需要 mask 局部重绘时**：先运行 `python scripts/mask_editor.py --image <主体图> --out <mask.png>` 弹出浏览器窗口，用矩形/椭圆/画笔/橡皮绘制重绘区（红色显示、羽化导出），保存后文件即为该单 mask；**每单的 mask 必须基于当单主体图重新生成/确认，并把可视化 check 展示给用户**（`json_images` 厂商不支持 mask，脚本会报错）。API key 读该厂商的环境变量（见档案）。**协议细节与官方参考实现见 `references/providers/heyroute.md` 与官方仓库 `github.com/heyroute-ai/skills`。**
+   `--size` 接受 `WIDTHxHEIGHT` 或口语档位（`3:2 1K`、`4K 3:2`——短边=1024×K、精确比例、16 倍数、超限自动钳制并回显；**`auto` 被硬禁**）。**`WIDTHxHEIGHT` 只做长边/比例/像素窗校验，不做 16 倍数校验——奇数边长（如 infistar 实测的 `1672x941`）直接原样交给 API 判断**；档位换算仍按 16 倍数步长算出整齐尺寸。`--quality` 默认 `high`（heyroute 白名单必传项；模型若在 `models` 覆盖表声明 `default_quality: null` 则整条省略）。参考图传递：无 `--image` 走 generations；带 `--image` 默认走 edits（多图重复 `image` 字段），**模型若声明 `edit_format: json_images`（如 seedream）则改为把参考图以 base64 放进 generations 的 JSON `images` 数组**。**需要 mask 局部重绘时**：先运行 `"<PYTHON>" "<SKILL_ROOT>/scripts/mask_editor.py" --image <主体图> --out <mask.png>`（**后台启动**，见「宿主适配」第 3 条）弹出浏览器窗口，用矩形/椭圆/画笔/橡皮绘制重绘区（红色显示、羽化导出），保存后文件即为该单 mask；**每单的 mask 必须基于当单主体图重新生成/确认，并把可视化 check 展示给用户**（`json_images` 厂商不支持 mask，脚本会报错）。API key 读该厂商的环境变量（见档案）。**协议细节与官方参考实现见 `references/providers/heyroute.md` 与官方仓库 `github.com/heyroute-ai/skills`。**
 
 5. **交付核对**：读回图片，对照提示词必要项与禁令逐项核对（开合方式、比例、禁物），连同**实际分辨率**回报。**任何错误/不符（分辨率偏差、流超时、连接失败等）：先向用户报告并等处理指示，绝不自作主张回写或重试**；仅当用户确认属**确定性问题**（可复现、已证实的模式）时，才把结论记入厂商档案「已知问题」——随机/偶发问题不记录。
 
@@ -68,7 +96,7 @@ python scripts/generate.py \
 | `compress_refs.py` | 把参考图压到 base64 上传预算（默认 6MB），压完再 `--image` 传 | 走 JSON base64 通道（apiyi / seedream）且参考图体积偏大时 |
 | `convert_assets_to_jpg.py` | 图片库批量转高质量 JPEG（`--dry-run` / `--delete-originals` / 自动重指软链接） | 库里攒了非 JPG 图想统一瘦身时 |
 
-**改了 `scripts/` 或 `tests/` 之后先跑测试**：`python tests/run_e2e.py` —— 先跑**离线单测**（`test_generate` / `test_sizes` / `test_assets` / `test_request` / `test_contracts` / `test_semantics` / `test_hygiene`，零网络零费用），再跑**无头 Chromium** 的交互断言 + 蒙版像素校验 + `bbox_from_mask.py` 集成；只想跑离线那半可用 `--unit-only`，只想验"测试真的能失败"可用 `python tests/mutation_check.py`。首次需 `cd tests && npm install && npx playwright install chromium`，详见 `tests/README.md`。
+**改了 `scripts/` 或 `tests/` 之后先跑测试**：`"<PYTHON>" "<SKILL_ROOT>/tests/run_e2e.py"` —— 先跑**离线单测**（`test_generate` / `test_sizes` / `test_assets` / `test_request` / `test_contracts` / `test_semantics` / `test_hygiene`，零网络零费用），再跑**无头 Chromium** 的交互断言 + 蒙版像素校验 + `bbox_from_mask.py` 集成；只想跑离线那半可用 `--unit-only`，只想验"测试真的能失败"可用 `"<PYTHON>" "<SKILL_ROOT>/tests/mutation_check.py"`。首次需 `cd "<SKILL_ROOT>/tests" && npm install && npx playwright install chromium`，详见 `tests/README.md`。
 
 ## 未覆盖功能与新增厂商
 

@@ -27,6 +27,12 @@ git clone --depth 1 <repo-url> <skills-dir>/image-generation
 
 It can also be imported as a git submodule.
 
+## Host adaptation
+
+This skill was originally authored for OpenCode. Other harnesses differ in ways that silently break it: the working directory is the **project root** rather than the skill directory, and the shell is an external process. Harnesses that launch their shells with `-NoProfile -NonInteractive` (WorkBuddy / CodeBuddy) do not see keys exported by your interactive shell — deliver them via the host's env mechanism, a `.image-generation/keys.env` file, or the Windows user-level registry.
+
+See the **Host adaptation** section in `SKILL.md` for the concrete rules (absolute script paths, interpreter resolution, key delivery, backgrounding the mask editor) before troubleshooting "it works in my terminal but not in the agent".
+
 ## Project customization layer (optional)
 
 The generic library contains only neutral defaults. Put your project-specific content (default specs / output naming / art style templates / negative words / historical incidents / decision sources) into the project-side profile `.image-generation/profile.md`:
