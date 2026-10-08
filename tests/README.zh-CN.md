@@ -1,4 +1,5 @@
 # image-generation 工具链测试
+[English](README.md) | **中文**
 
 `python run_e2e.py` 一条命令跑完全部：**离线单测**（多组，零网络零费用）→ **无头 Chromium 交互断言** → **蒙版像素校验 + `bbox_from_mask.py` 集成**。退出码 0 = 全绿。
 

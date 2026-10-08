@@ -1,4 +1,5 @@
 # Provider Profile · APIYi (Seedream Channel)
+**English** | [中文](apiyi.zh-CN.md)
 
 > Fixed sections of a single-provider profile: Documentation Location / Authentication and Endpoints / Parameter Allowlist / Model Table / Size Rules / Response Protocol / Billing / Known Issues / Provider-Specific Parameters.
 > Created (2026-09-25): sources = official docs (docs.apiyi.com) + live `GET /v1/models` measurements; **not yet** validated against a real image generation.

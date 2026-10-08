@@ -1,4 +1,5 @@
 # Prompt Completeness Checklist (prompt-checklist)
+**English** | [中文](prompt-checklist.zh-CN.md)
 
 > Purpose: check the prompt section by section before generating. If any section is missing, fill it in before moving to parameter confirmation.
 > Root cause: constraints settled in conversation are not remembered for you by the model or by future sessions — an omission becomes a generation accident.

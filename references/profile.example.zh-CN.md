@@ -7,6 +7,7 @@ output_naming: "assets/scratch/YYYYMMDD-HHMMSS-<slug>.jpg"
 ---
 
 # 项目档案示例（中性）
+[English](profile.example.md) | **中文**
 
 > 复制本文件到 `<工程根>/.image-generation/profile.md` 后按你的项目填写。
 > 本文件只是示例，不代表任何真实项目；技能仓库不包含生效的 profile。

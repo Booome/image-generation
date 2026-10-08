@@ -7,6 +7,7 @@ output_naming: "assets/scratch/YYYYMMDD-HHMMSS-<slug>.jpg"
 ---
 
 # Project Profile Example (Neutral)
+**English** | [中文](profile.example.zh-CN.md)
 
 > Copy this file to `<工程根>/.image-generation/profile.md` and fill it in for your own project.
 > This file is only an example and does not represent any real project; the skill repo contains no active profile.

@@ -1,4 +1,5 @@
 # Provider Profile · HeyRoute
+**English** | [中文](heyroute.zh-CN.md)
 
 > Fixed sections for a single-provider profile: document locations / authentication and endpoints / parameter allowlist / model table / size rules / response protocol / billing / known issues / provider-specific parameters.
 > To add a provider, copy this structure to `references/providers/<provider>.md` and register it under `PROVIDERS` in `scripts/generate.py`.

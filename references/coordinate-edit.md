@@ -1,4 +1,5 @@
 # Coordinate-box Edit (Seedream 5.0 Pro interactive edit)
+**English** | [中文](coordinate-edit.zh-CN.md)
 
 > Applies when: you need to make a local modification to an **already generated image** (replace/add/change some spot) without repainting the whole image.
 > Tested channel: `volcengine` · `doubao-seedream-5-0-pro-260628` (verified working on 2026-09-25).

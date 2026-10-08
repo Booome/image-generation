@@ -1,4 +1,5 @@
 # 坐标框选编辑（Seedream 5.0 Pro 交互编辑）
+[English](coordinate-edit.md) | **中文**
 
 > 适用：需要对**已生成的图**做局部修改（换/加/改某处），又不希望整图重画时。
 > 实测渠道：`volcengine` · `doubao-seedream-5-0-pro-260628`（2026-09-25 实测生效）。

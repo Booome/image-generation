@@ -1,4 +1,5 @@
 # image-generation Toolchain Tests
+**English** | [中文](README.zh-CN.md)
 
 `python run_e2e.py` runs everything in one command: **offline unit tests** (multiple groups, zero network, zero cost) → **headless Chromium interaction assertions** → **mask pixel verification + `bbox_from_mask.py` integration**. Exit code 0 = all green.
 

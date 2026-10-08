@@ -1,4 +1,5 @@
 # image-generation
+**English** | [中文](README.zh-CN.md)
 
 Multi-provider image generation workflow skill (for coding agents that follow the `SKILL.md` convention: OpenCode / WorkBuddy(CodeBuddy) / Claude Code, etc.).
 

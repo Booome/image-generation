@@ -1,4 +1,5 @@
 # image-generation
+[English](README.md) | **中文**
 
 多厂商图片生成工作流技能（面向支持 `SKILL.md` 约定的编码 agent：OpenCode / WorkBuddy(CodeBuddy) / Claude Code 等）。
 
