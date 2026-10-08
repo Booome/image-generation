@@ -67,11 +67,12 @@ r = subprocess.run([sys.executable, str(SCRIPTS / "generate.py"), "--provider", 
 if r.returncode != 1:
     note("参数错误应 exit 1，实际 %d" % r.returncode)
 
-print("=== 4) size 默认值没变（老调用不带 --size 时行为一致）===")
-r = subprocess.run([sys.executable, str(SCRIPTS / "generate.py"), "--help"],
+print("=== 4) --size 现在是必填（无默认），缺省即报错 ===")
+r = subprocess.run([sys.executable, str(SCRIPTS / "generate.py"), "--provider", "heyroute",
+                    "--prompt", "x", "--out", str(work / "x.jpg")],
                    capture_output=True, text=True, encoding="utf-8")
-if "16:9 1K" not in (r.stdout or ""):
-    note("默认 --size 似乎变了（项目默认是 16:9 1K）")
+if r.returncode == 0 or "--size" not in (r.stderr or ""):
+    note("缺少 --size 时应报错并点名 --size，实际 rc=%d" % r.returncode)
 
 print("=== 5) compress_refs 的文件名去重语义没变 ===")
 cr = load("compress_refs")
