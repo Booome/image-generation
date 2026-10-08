@@ -44,6 +44,7 @@ allowed-tools: Read, Write, Bash
 4. **输出编码**：第 1 层（脚本内 `configure_stdio()`）在任何 harness 下都成立；第 2 层（`opencode-windows-encoding` 插件）是 OpenCode 专属加分项，其他 harness 没有它不影响任何功能。
 5. **密钥投递**：`read_env()` 依次读「进程环境 → 工程侧 `.image-generation/keys.env`（可选）→ Windows 用户级注册表」。**以 `-NoProfile -NonInteractive` 启动 shell 的 harness（如 WorkBuddy / CodeBuddy）读不到交互式 shell（PowerShell profile）里 `$env:` 设的值**——这类 harness 需用宿主 env 机制（如 `settings.json` 的 `env`）、`keys.env` 或注册表投递；会加载 profile 的环境（如 OpenCode）则无此问题。**变量存在但值为空 = 未配置**。
    - `keys.env` 为纯文本 `NAME=VALUE`（无 `export`，`#` 注释），默认路径 `.image-generation/keys.env`，可用环境变量 `IMAGE_GENERATION_KEYS_FILE` 改路径；**该文件不要入库**。
+6. **超时对齐**：`generate.py --timeout` 默认 240s（sync-JSON 厂商要等整张图生成完），而多数 harness 的前台命令默认超时更短（如 WorkBuddy 约 120s）——**sync-JSON 厂商一律以后台任务方式跑**，或把宿主的命令超时调到 ≥300s，否则前台拿不到结果、需另行轮询。
 
 ## 工作流程
 
