@@ -116,6 +116,19 @@ PROVIDERS = {
         "extra_params": {"watermark": False, "response_format": "url"},
         "preflight_path": "/models",
         "doc": "references/providers/volcengine.md",
+        # Native-alpha transparency is a MODEL capability declared per model:
+        # --transparent merges this recipe (measured recipe and rationale in
+        # references/providers/volcengine.md, "Transparent background") and
+        # refuses any model that does not declare it.
+        "models": {
+            "doubao-seedream-5-0-pro-260628": {
+                "transparent_params": {
+                    "background": "transparent",
+                    "output_format": "png",
+                    "response_format": "b64_json",
+                },
+            },
+        },
     },
 }
 
@@ -541,6 +554,49 @@ def image_size(path):
     return image_size_bytes(Path(path).read_bytes())
 
 
+def _has_alpha(im):
+    return im.mode in ("RGBA", "LA") or (im.mode == "P" and "transparency" in im.info)
+
+
+def alpha_coverage(path):
+    """(has_alpha_channel, transparent_pixel_ratio) for a local image.
+
+    Transparent-background generation is image-to-image only and the provider
+    rejects a reference that carries no alpha channel, so the input has to be
+    judged locally BEFORE the billable POST instead of being discovered from a
+    4xx (or, worse, silently coming back opaque). Returns (None, None) when the
+    file cannot be read or Pillow is missing - an unreadable image is reported
+    by the caller, never guessed at here.
+    """
+    try:
+        from PIL import Image
+    except ImportError:
+        return None, None
+    try:
+        with Image.open(path) as im:
+            if not _has_alpha(im):
+                return False, 0.0
+            alpha = im.convert("RGBA").getchannel("A")  # forces a full decode
+    except Exception:
+        return None, None
+    hist = alpha.histogram()
+    total = sum(hist) or 1
+    return True, 1.0 - (hist[255] / total)
+
+
+def transparent_support():
+    """Entries that declare transparent_params, for the 'unsupported' message.
+    Merged view per model, matching resolve_provider, so a top-level
+    declaration cannot be under-reported."""
+    found = set()
+    for name, cfg in PROVIDERS.items():
+        models = cfg.get("models") or {}
+        for model in {cfg["default_model"], *models}:
+            if ({**cfg, **(models.get(model) or {})}).get("transparent_params"):
+                found.add(f"{name}/{model}")
+    return ", ".join(sorted(found)) or "(none)"
+
+
 def detect_format(data):
     """'png' | 'jpg' | None, from the magic bytes alone."""
     if data[:8] == PNG_MAGIC:
@@ -586,7 +642,7 @@ def write_output(raw, out, jpeg_quality):
             )
         with im:
             im = ImageOps.exif_transpose(im)
-            if im.mode in ("RGBA", "LA") or (im.mode == "P" and "transparency" in im.info):
+            if _has_alpha(im):
                 png_out = out.with_suffix(".png")
                 im.convert("RGBA").save(png_out, "PNG")
                 return png_out, (
@@ -736,6 +792,10 @@ def main():
     ap.add_argument("--out", required=True,
                     help="output image path; format follows the extension: .png keeps PNG, "
                          "anything else (or none) is written as JPEG")
+    ap.add_argument("--transparent", action="store_true",
+                    help="request a native-alpha transparent background; needs a model that "
+                         "declares transparent_params, an --image input that already carries an "
+                         "alpha channel, and an --out path ending in .png")
     ap.add_argument("--api-base", default=None, help="override provider base URL")
     ap.add_argument("--proxy", default=None,
                     help="HTTP(S) proxy URL for outbound requests; falls back to "
@@ -799,6 +859,45 @@ def main():
     if args.mask and not Path(args.mask).exists():
         die(f"mask not found: {args.mask}")
 
+    # Transparent mode: every precondition is local, so all of them are settled
+    # here - same rule as the size contract (report and stop, never substitute).
+    transparent_params = provider.get("transparent_params") or {}
+    if args.transparent:
+        if not transparent_params:
+            die(
+                f"--transparent is not supported by {args.provider}/{model}: no "
+                f"transparent_params declared in generate.py.\n"
+                f"  Declared for: {transparent_support()}\n"
+                f"  no request was sent; pick a supporting model or drop the flag."
+            )
+        if not args.image:
+            die(
+                "--transparent needs --image: transparent mode is image-to-image only, "
+                "so a prompt-only request would be rejected.\n"
+                "  no request was sent."
+            )
+        if Path(args.out).suffix.lower() != ".png":
+            die(
+                f"--transparent produces an alpha PNG, so --out must end in .png "
+                f"(got {Path(args.out).name}).\n"
+                f"  refusing to silently swap the extension; rename the output and re-confirm.\n"
+                f"  no request was sent."
+            )
+        for p in args.image:
+            has_alpha, ratio = alpha_coverage(p)
+            if has_alpha is None:
+                die(f"--transparent: cannot read {p} as an image (Pillow is required).\n"
+                    f"  no request was sent.")
+            if not has_alpha:
+                die(
+                    f"--transparent: {Path(p).name} carries no alpha channel.\n"
+                    f"  The provider rejects an opaque reference in transparent mode - matte the "
+                    f"subject out first (e.g. rembg) and pass that PNG.\n"
+                    f"  no request was sent."
+                )
+            print(f"--transparent: {Path(p).name} carries alpha ({ratio * 100:.1f}% of pixels "
+                  f"transparent)", file=sys.stderr)
+
     base = (args.api_base or provider["base"]).rstrip("/")
     # Protocol-faithful headers: SSE accept + stream flag only for SSE providers
     # (OpenAI images has no `stream` param; sending it can force SSE dialects).
@@ -822,6 +921,14 @@ def main():
     # stream flag: SSE providers only (protocol declaration per heyroute official skill)
     use_stream = is_sse
 
+    # Provider-declared extras, with the transparent recipe merged LAST so it
+    # wins where the two overlap: volcengine pins response_format to `url`, while
+    # the measured transparent recipe needs `b64_json`. Built once so the two
+    # request shapes cannot drift.
+    extra_params = dict(provider.get("extra_params") or {})
+    if args.transparent:
+        extra_params.update(transparent_params)
+
     # Fields both branches share, built once so the two request shapes cannot drift.
     common = {"model": model, "prompt": prompt, "size": size_str}
     if quality:
@@ -831,7 +938,7 @@ def main():
         if args.image and not json_images:
             url = base + provider["edits_path"]
             data = {**common, "n": "1"}  # multipart fields are strings
-            for k, v in (provider.get("extra_params") or {}).items():
+            for k, v in extra_params.items():
                 data[k] = _form_val(v)
             if use_stream:
                 data["stream"] = "true"
@@ -849,7 +956,7 @@ def main():
         else:
             url = base + provider["generations_path"]
             body = {**common, "n": 1}
-            body.update(provider.get("extra_params") or {})
+            body.update(extra_params)
             if json_images:
                 refs = [_data_uri(Path(p)) for p in args.image]
                 total = sum(len(r) for r in refs)
@@ -933,6 +1040,7 @@ def main():
         "provider": args.provider,
         "model": model,
         "quality": quality,
+        "transparent": args.transparent,
         "endpoint": "edits" if (args.image and not json_images) else "generations",
         "requested_spec": args.size,
         "resolved_size": size_str,
@@ -953,8 +1061,9 @@ def main():
         "resolved_size": size_str,
         "actual_size": actual_str,
         "quality": quality,
+        "transparent": args.transparent,
         "n": args.n,
-        "watermark": (provider.get("extra_params") or {}).get("watermark"),
+        "watermark": extra_params.get("watermark"),
         "reference_images": [str(Path(p)) for p in args.image],
         "mask": str(Path(args.mask)) if args.mask else None,
         "prompt": prompt,

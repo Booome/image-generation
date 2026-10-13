@@ -5,6 +5,7 @@ right fields, types and endpoint before anything is billed.
 """
 import atexit
 import base64
+import contextlib
 import shutil
 import tempfile
 import importlib.util
@@ -111,6 +112,59 @@ check("refs ride in the singular 'image' array",
 check("apiyi extra_params merged", cap["body"].get("watermark") is False
       and cap["body"].get("output_format") == "png", cap["body"])
 check("no quality key for apiyi", "quality" not in cap["body"], cap["body"].get("quality"))
+
+print("--- D) --transparent: the native-alpha recipe and its local preconditions ---")
+# Transparent mode is a MODEL capability, declared as transparent_params (recipe
+# measured end to end - see references/providers/volcengine.md). Every
+# precondition is local, so a mistake must cost nothing: four of the five
+# scenarios below assert that no request was even built.
+ALPHA_REF = TMP / "_alpha_ref.png"
+Image.new("RGBA", (48, 36), (9, 9, 9, 0)).save(ALPHA_REF)
+
+
+def run_expect_die(argv):
+    """Run main() expecting die(); return (exit code, stderr text)."""
+    err = io.StringIO()
+    try:
+        with contextlib.redirect_stderr(err):
+            run(argv)
+    except SystemExit as exc:
+        return exc.code, err.getvalue()
+    return None, err.getvalue()
+
+
+run(["--provider", "volcengine", "--model", "doubao-seedream-5-0-pro-260628",
+     "--size", "3:4 2K", "--prompt", "hello", "--image", ALPHA_REF,
+     "--transparent", "--out", str(TMP / "_rb_trans.png")])
+check("body carries background=transparent", cap["body"].get("background") == "transparent", cap["body"])
+check("body carries output_format=png", cap["body"].get("output_format") == "png", cap["body"])
+check("transparent overrides extra_params response_format",
+      cap["body"].get("response_format") == "b64_json", cap["body"].get("response_format"))
+check("watermark stays disabled alongside it", cap["body"].get("watermark") is False, cap["body"])
+check("refs still ride in the singular 'image' array",
+      isinstance(cap["body"].get("image"), list) and cap["body"]["image"][0].startswith("data:image/"),
+      cap["body"].get("image") and cap["body"]["image"][0][:30])
+
+BASE = ["--provider", "volcengine", "--model", "doubao-seedream-5-0-pro-260628",
+        "--size", "3:4 2K", "--prompt", "hello"]
+code, err = run_expect_die(BASE + ["--transparent", "--out", str(TMP / "_rb_noimg.png")])
+check("refused without --image (image-to-image only)",
+      code == 1 and "--image" in err and not cap, (code, err.strip()[-110:]))
+
+code, err = run_expect_die(BASE + ["--transparent", "--image", IMG, "--out", str(TMP / "_rb_opa.png")])
+check("refused when the input has no alpha channel",
+      code == 1 and "alpha" in err and not cap, (code, err.strip()[-110:]))
+
+code, err = run_expect_die(BASE + ["--transparent", "--image", ALPHA_REF,
+                                   "--out", str(TMP / "_rb_trans.jpg")])
+check("refused when --out is not .png",
+      code == 1 and ".png" in err and not cap, (code, err.strip()[-110:]))
+
+code, err = run_expect_die(["--provider", "heyroute", "--model", "gpt-image-2", "--size", "1536x1024",
+                            "--prompt", "hello", "--image", ALPHA_REF,
+                            "--transparent", "--out", str(TMP / "_rb_hey.png")])
+check("refused on a model with no declared recipe",
+      code == 1 and "not supported" in err and not cap, (code, err.strip()[-110:]))
 
 print("fails =", len(fails), fails)
 sys.exit(1 if fails else 0)

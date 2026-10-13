@@ -27,6 +27,8 @@
 | `size` | 比例（`16:9` …）或 `WxH` | 像素总范围 `[921600, 4624220]`，比例 `[1/16, 16]` |
 | `quality` | `1K` / `1.5K` / `2K` | **是分辨率档位**，不是 low/medium/high → 本 skill 用像素 `size`，**不发此参数** |
 | `response_format` | `url` / `b64_json` | 默认 `url`（火山 TOS，约 24h） |
+| `background` | `transparent` | **实测所得，未重读官方页** → 见「特有参数」的「透明底」 |
+| `output_format` | `png` / `jpeg` | **实测所得**；透明模式需要 `png`（JPEG 带不了 alpha） |
 | `watermark` | 布尔 | **默认 `true`，须显式 `false`** |
 | `sequential_image_generation` / `stream` / `tools` / `optimize_prompt_options` | — | **5.0 Pro 均不支持**（仅 4.0 / 4.5 / 5.0-lite 支持） |
 
@@ -65,3 +67,23 @@
 
 - `image`（参考图数组，**单数名**）——与 apiyi 的 seedream 条目一致
 - `watermark` 默认 `true`，必须显式关闭
+
+### 透明底（原生 alpha）
+
+**已在 `doubao-seedream-5-0-pro-260628` 上端到端实测（2026-09-28）。** 官方文档页是 JS 渲染的、这两个参数未重读，故此处来源是**真实跑通的一单**，不是厂商措辞。
+
+| 参数 | 取值 | 为什么 |
+|---|---|---|
+| `background` | `transparent` | 开关本身 |
+| `output_format` | `png` | JPEG 带不了 alpha |
+| `response_format` | `b64_json` | 实践上必需：默认 `url` 返回火山 TOS 链接，而**下载直链正是会超时的那一步**（走代理时尤其） |
+
+skill 侧：`--transparent` 合并的正是这三个，且**在 `extra_params` 之后合并**——两者重叠处由它胜出（`extra_params` 把 `response_format` 钉在 `url`）。它是**按模型**声明的 `transparent_params`，因此未声明的模型会**在发请求前被拒**，而不是收到一个会被静默忽略的参数。
+
+三条前提全部**本地校验**——填错不花一分钱：
+
+1. **仅图生图** —— 纯文生图会被拒，故必须给 `--image`。
+2. **输入必须自带 alpha 通道**。先用 `rembg` 之类把主体抠出来再传那张 PNG；不透明参考会被拒。粗抠的粗糙度**不影响**结果 —— **边缘由模型重绘成连续渐隐的 alpha**，这正是它强于本地抠图的地方（无锯齿硬边、无灰边）。
+3. **`--out` 必须以 `.png` 结尾**。
+
+输出为 RGBA。已知小坑：alpha 满值回来是 **254 而非 255** —— 交付前做一次归一化。

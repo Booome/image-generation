@@ -27,6 +27,8 @@
 | `size` | ratio (`16:9` …) or `WxH` | Total pixel range `[921600, 4624220]`, ratio `[1/16, 16]` |
 | `quality` | `1K` / `1.5K` / `2K` | **It is a resolution tier**, not low/medium/high → this skill uses pixel `size` and **does not send this parameter** |
 | `response_format` | `url` / `b64_json` | Default `url` (Volcengine TOS, about 24h) |
+| `background` | `transparent` | **Live-measured, not re-read from the official page** → see "Transparent background" under Provider-Specific Parameters |
+| `output_format` | `png` / `jpeg` | **Live-measured**; transparent mode needs `png` (JPEG cannot carry alpha) |
 | `watermark` | boolean | **Default `true`, must be explicitly `false`** |
 | `sequential_image_generation` / `stream` / `tools` / `optimize_prompt_options` | — | **5.0 Pro supports none** (supported only by 4.0 / 4.5 / 5.0-lite) |
 
@@ -65,3 +67,34 @@
 
 - `image` (reference-image array, **singular name**) — consistent with the seedream entry in apiyi
 - `watermark` defaults to `true`, must be explicitly disabled
+
+### Transparent background (native alpha)
+
+**Live-measured end to end (2026-09-28) on `doubao-seedream-5-0-pro-260628`.** The
+official docs page is JS-rendered and was not re-read for these two parameters, so
+the provenance here is a real run, not vendor wording.
+
+| Parameter | Value | Why |
+|---|---|---|
+| `background` | `transparent` | the switch itself |
+| `output_format` | `png` | JPEG cannot carry alpha |
+| `response_format` | `b64_json` | in practice required: the default `url` hands back a TOS link, which is the step that times out behind a proxy |
+
+Skill side: `--transparent` merges exactly these three, and it is merged **after**
+`extra_params` so it wins where the two overlap (`extra_params` pins
+`response_format` to `url`). It is declared **per model** as `transparent_params`,
+so a model without the declaration is refused up front rather than being sent a
+parameter it would silently ignore.
+
+Three preconditions, all checked locally — a mistake costs nothing:
+
+1. **Image-to-image only** — a prompt-only request is rejected, so `--image` is required.
+2. **The input must already carry an alpha channel.** Matte the subject out first
+   (e.g. `rembg`) and pass that PNG; an opaque reference is rejected. The coarseness
+   of that matte does **not** matter — **the model redraws the edge into a
+   continuous soft alpha**, which is exactly what makes this better than local
+   matting (no hard sawtooth edge, no grey fringe).
+3. **`--out` must end in `.png`.**
+
+Output is RGBA. Known wrinkle: the alpha ceiling comes back as **254, not 255** —
+normalise to 255 before delivery.

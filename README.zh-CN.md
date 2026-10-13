@@ -7,6 +7,7 @@
 
 - 多厂商统一入口（HeyRoute / Infistar / APIYi / 火山方舟），SSE 与 OpenAI 兼容 JSON 两种协议自动分流；
 - 参考图（multipart edits / JSON base64 数组）与 mask 局部重绘；
+- **原生透明底输出**（`--transparent`；配方按模型声明，前提全部本地校验、不满足不发请求）；
 - 浏览器蒙版编辑器（矩形 / 椭圆 / 多边形 / 画笔 / 橡皮、多选区、比例锁、撤销）；
 - 完整测试：离线单测 + 浏览器 E2E + mutation 守门器。
 

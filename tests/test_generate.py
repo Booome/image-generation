@@ -146,7 +146,8 @@ print("--- sidecar: the cataloguing draft, not run-time bookkeeping ---")
 import json as _json
 
 SIDECAR_KEYS = {"provider", "model", "endpoint", "requested_spec", "resolved_size",
-                "actual_size", "quality", "n", "watermark", "reference_images", "mask", "prompt"}
+                "actual_size", "quality", "transparent", "n", "watermark",
+                "reference_images", "mask", "prompt"}
 RUN_ONLY_KEYS = {"status", "saved", "size_mismatch", "skill_update_suggested"}
 
 work = Path(tempfile.mkdtemp(prefix="sidecar_"))
@@ -191,6 +192,8 @@ if side.exists():
     check("sizes recorded", data.get("resolved_size") == "1824x1026" and data.get("actual_size") == "64x64",
           (data.get("resolved_size"), data.get("actual_size")))
     check("watermark captured from provider params", data.get("watermark") is False, data.get("watermark"))
+    check("transparent recorded as off unless asked for", data.get("transparent") is False,
+          data.get("transparent"))
     check("sidecar has no hardcoded user-home path beyond the temp fixture",
           text.count("C:\\\\Users\\\\") + text.count("C:/Users/") <= len(data.get("reference_images") or []),
           [l for l in text.splitlines() if "Users" in l][:3])
