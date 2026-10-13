@@ -210,6 +210,9 @@ side_ok_path = TMP / "_rb_ok.json"
 side_ok = json.loads(side_ok_path.read_text(encoding="utf-8")) if side_ok_path.exists() else {}
 check("...the sidecar carries the same verdict",
       side_ok.get("transparent_verified") is True, side_ok.get("transparent_verified"))
+check("...a clean verdict carries no failure reason",
+      rep.get("transparent_error") is None and side_ok.get("transparent_error") is None,
+      (rep.get("transparent_error"), side_ok.get("transparent_error")))
 
 RESP["b64"] = PNG_B64  # the lying channel: request accepted, picture opaque
 out, err, code = run_capture(TRANS_ARGS + ["--out", str(TMP / "_rb_liar.png")])
@@ -221,6 +224,8 @@ check("...and it warns loudly on stderr",
 check("...still exits 0 (warn, never auto-retry a billed run)", code == 0, code)
 check("...the saved file really is opaque (nothing was faked)",
       gen.alpha_coverage(TMP / "_rb_liar.png")[0] is False, gen.alpha_coverage(TMP / "_rb_liar.png"))
+check("...and the reason is recorded as a short code, not prose",
+      rep.get("transparent_error") == "opaque", rep.get("transparent_error"))
 
 # Volcengine's alpha ceiling comes back as 254, not 255 (measured; noted in the
 # provider archive). The read-back must not count those 254s as transparency:
@@ -244,6 +249,18 @@ rep = json.loads(out)
 check("half-254/half-0 output is verified with an honest ratio",
       rep.get("transparent_verified") is True and "50.0%" in err,
       (rep.get("transparent_verified"), err.strip()[-130:]))
+
+# "The channel returned an opaque picture" and "we could not tell" are different
+# problems with different fixes (switch channel vs fix tooling), so a single
+# tri-state boolean cannot carry both: it is null when the mode was unused,
+# which leaves no room for a third value. The short reason code keeps them apart.
+_warn = io.StringIO()
+with contextlib.redirect_stderr(_warn):
+    _v, _why = gen.verify_transparent_output(TMP / "_definitely-not-here.png")
+check("unreadable output -> verified false, reason 'unreadable'",
+      _v is False and _why == "unreadable", (_v, _why))
+check("...and the reason is not swallowed (still warned on stderr)",
+      "could not be verified" in _warn.getvalue(), _warn.getvalue()[-120:])
 
 print("fails =", len(fails), fails)
 sys.exit(1 if fails else 0)

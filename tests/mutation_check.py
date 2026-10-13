@@ -41,6 +41,10 @@ MUTATIONS = [
      "return True, 1.0 - ((hist[254] + hist[255]) / total)", "return True, 1.0"),
     ("generate: accept any alpha-shaped output as verified", GEN,
      "if has_alpha and ratio > 0.0:", "if True:"),
+    ("generate: hide a failed transparent read-back", GEN,
+     'return False, "unreadable"', 'return False, None'),
+    ("generate: drop the opaque transparent verdict", GEN,
+     'return False, "opaque"', 'return False, None'),
 
     ("mask_editor: break the transparent-alpha contract", "scripts/mask_editor.py",
      "id.data[i + 3] = s[i];", "id.data[i + 3] = 255;"),

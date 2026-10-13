@@ -105,3 +105,13 @@ accepts `background=transparent` and returns an opaque image is therefore caught
 during the run instead of shipping as a "transparent" master. It warns rather than
 aborting on purpose: the generation is already billed and the file already written,
 so the run finishes and says what it got.
+
+A failed check also carries a short machine-readable reason in `transparent_error`,
+so the two cases stay apart without parsing prose - they need different fixes:
+
+| `transparent_verified` | `transparent_error` | meaning |
+|---|---|---|
+| `null` | `null` | the mode was not used |
+| `true` | `null` | the saved file really carries alpha |
+| `false` | `"opaque"` | the channel returned a picture with no real alpha - switch channel |
+| `false` | `"unreadable"` | the saved file could not be read (needs Pillow) - a local problem, not the channel |

@@ -146,7 +146,8 @@ print("--- sidecar: the cataloguing draft, not run-time bookkeeping ---")
 import json as _json
 
 SIDECAR_KEYS = {"provider", "model", "endpoint", "requested_spec", "resolved_size",
-                "actual_size", "quality", "transparent", "transparent_verified", "n",
+                "actual_size", "quality", "transparent", "transparent_verified",
+                "transparent_error", "n",
                 "watermark", "reference_images", "mask", "prompt"}
 RUN_ONLY_KEYS = {"status", "saved", "size_mismatch", "skill_update_suggested"}
 
@@ -196,6 +197,8 @@ if side.exists():
           data.get("transparent"))
     check("verification stays null when transparent mode was not used",
           data.get("transparent_verified") is None, data.get("transparent_verified"))
+    check("...and so does the failure reason (null means 'not used', never 'unknown')",
+          data.get("transparent_error") is None, data.get("transparent_error"))
     check("sidecar has no hardcoded user-home path beyond the temp fixture",
           text.count("C:\\\\Users\\\\") + text.count("C:/Users/") <= len(data.get("reference_images") or []),
           [l for l in text.splitlines() if "Users" in l][:3])

@@ -606,21 +606,33 @@ def verify_transparent_output(wrote):
     `background=transparent` and still hand back an opaque image (measured on
     heyroute: HTTP 200, plausible picture, no alpha), which would otherwise
     ship as a "transparent" master with nothing to catch it. Reading the saved
-    file back is the only way to tell. Returns True/False, or None when the
-    file cannot be judged. Warns instead of die()ing on purpose: the
-    generation is already billed and the file is already written, so the run
-    has to finish and say so rather than pretend otherwise.
+    file back is the only way to tell. Warns instead of die()ing on purpose:
+    the generation is already billed and the file is already written, so the
+    run has to finish and say so rather than pretend otherwise.
+
+    Returns (verified, reason) so the two failure modes stay separable without
+    parsing prose. `transparent_verified` alone cannot carry that: it is null
+    when the mode was not used, which leaves no room for a third "could not
+    tell" value.
+
+        (True,  None)       the saved file really carries alpha
+        (False, "opaque")   the channel returned a picture with no real alpha
+        (False, "unreadable") the file could not be read, so nothing was verified
+
+    Both failures mean the same thing for delivery - do not ship it as a
+    transparent master - but the second is a local/tooling problem, not a
+    misbehaving channel, so the fix differs.
     """
     has_alpha, ratio = alpha_coverage(wrote)
     if has_alpha is None:
         print(f"WARNING: --transparent could not be verified "
               f"(cannot read {wrote.name} as an image; Pillow is required)",
               file=sys.stderr)
-        return None
+        return False, "unreadable"
     if has_alpha and ratio > 0.0:
         print(f"--transparent: output carries real alpha "
               f"({ratio * 100:.1f}% of pixels transparent)", file=sys.stderr)
-        return True
+        return True, None
     print(
         f"WARNING: --transparent was requested but {wrote.name} has "
         + ("NO alpha channel" if not has_alpha else "a fully opaque alpha channel")
@@ -630,7 +642,7 @@ def verify_transparent_output(wrote):
         "  report it to the user and switch to a channel with native alpha.",
         file=sys.stderr,
     )
-    return False
+    return False, "opaque"
 
 
 def detect_format(data):
@@ -1066,7 +1078,9 @@ def main():
     if note:
         print(note, file=sys.stderr)
 
-    transparent_verified = verify_transparent_output(wrote) if args.transparent else None
+    transparent_verified = transparent_error = None
+    if args.transparent:
+        transparent_verified, transparent_error = verify_transparent_output(wrote)
 
     actual = image_size(wrote)
     actual_str = f"{actual[0]}x{actual[1]}" if actual else "unknown"
@@ -1080,6 +1094,7 @@ def main():
         "quality": quality,
         "transparent": args.transparent,
         "transparent_verified": transparent_verified,
+        "transparent_error": transparent_error,
         "endpoint": "edits" if (args.image and not json_images) else "generations",
         "requested_spec": args.size,
         "resolved_size": size_str,
@@ -1102,6 +1117,7 @@ def main():
         "quality": quality,
         "transparent": args.transparent,
         "transparent_verified": transparent_verified,
+        "transparent_error": transparent_error,
         "n": args.n,
         "watermark": extra_params.get("watermark"),
         "reference_images": [str(Path(p)) for p in args.image],
