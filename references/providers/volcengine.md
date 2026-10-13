@@ -98,3 +98,10 @@ Three preconditions, all checked locally — a mistake costs nothing:
 
 Output is RGBA. Known wrinkle: the alpha ceiling comes back as **254, not 255** —
 normalise to 255 before delivery.
+
+**The skill reads the written file back**, recording `transparent_verified` in both
+the run report and the sidecar (`null` when the mode was not used). A channel that
+accepts `background=transparent` and returns an opaque image is therefore caught
+during the run instead of shipping as a "transparent" master. It warns rather than
+aborting on purpose: the generation is already billed and the file already written,
+so the run finishes and says what it got.

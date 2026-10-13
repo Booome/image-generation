@@ -7,7 +7,7 @@ It consolidates "prompt completeness check → parameter flattening confirmation
 
 - A unified multi-provider entry point (HeyRoute / Infistar / APIYi / Volcengine Ark), with automatic routing between two protocols: SSE and OpenAI-compatible JSON;
 - Reference images (multipart edits / JSON base64 arrays) and mask-based local repainting;
-- **Native-alpha transparent output** (`--transparent`; the recipe is declared per model and every precondition is verified locally before anything is billed);
+- **Native-alpha transparent output** (`--transparent`; the recipe is declared per model, every precondition is verified locally before anything is billed, and the written file is read back so an opaque result is reported instead of shipping as a "transparent" master);
 - Browser mask editor (rectangle / ellipse / polygon / brush / eraser, multiple selections, aspect-ratio lock, undo);
 - Full testing: offline unit tests + browser E2E + mutation gate.
 

@@ -561,12 +561,14 @@ def _has_alpha(im):
 def alpha_coverage(path):
     """(has_alpha_channel, transparent_pixel_ratio) for a local image.
 
-    Transparent-background generation is image-to-image only and the provider
-    rejects a reference that carries no alpha channel, so the input has to be
-    judged locally BEFORE the billable POST instead of being discovered from a
-    4xx (or, worse, silently coming back opaque). Returns (None, None) when the
-    file cannot be read or Pillow is missing - an unreadable image is reported
-    by the caller, never guessed at here.
+    Used twice on the transparent path: to judge a reference BEFORE the
+    billable POST (the provider rejects an opaque input) and to read the
+    written file back AFTER it (a channel can accept background=transparent
+    and still return an opaque picture). Volcengine's alpha ceiling comes
+    back as 254, not 255, so 254 counts as opaque here - otherwise every
+    volcengine output would read as 100% transparent. Returns (None, None)
+    when the file cannot be read or Pillow is missing - an unreadable image
+    is reported by the caller, never guessed at here.
     """
     try:
         from PIL import Image
@@ -581,7 +583,7 @@ def alpha_coverage(path):
         return None, None
     hist = alpha.histogram()
     total = sum(hist) or 1
-    return True, 1.0 - (hist[255] / total)
+    return True, 1.0 - ((hist[254] + hist[255]) / total)
 
 
 def transparent_support():
@@ -595,6 +597,40 @@ def transparent_support():
             if ({**cfg, **(models.get(model) or {})}).get("transparent_params"):
                 found.add(f"{name}/{model}")
     return ", ".join(sorted(found)) or "(none)"
+
+
+def verify_transparent_output(wrote):
+    """Read the written file back and judge the --transparent verdict.
+
+    Requesting the recipe is not proof of the result: a channel can accept
+    `background=transparent` and still hand back an opaque image (measured on
+    heyroute: HTTP 200, plausible picture, no alpha), which would otherwise
+    ship as a "transparent" master with nothing to catch it. Reading the saved
+    file back is the only way to tell. Returns True/False, or None when the
+    file cannot be judged. Warns instead of die()ing on purpose: the
+    generation is already billed and the file is already written, so the run
+    has to finish and say so rather than pretend otherwise.
+    """
+    has_alpha, ratio = alpha_coverage(wrote)
+    if has_alpha is None:
+        print(f"WARNING: --transparent could not be verified "
+              f"(cannot read {wrote.name} as an image; Pillow is required)",
+              file=sys.stderr)
+        return None
+    if has_alpha and ratio > 0.0:
+        print(f"--transparent: output carries real alpha "
+              f"({ratio * 100:.1f}% of pixels transparent)", file=sys.stderr)
+        return True
+    print(
+        f"WARNING: --transparent was requested but {wrote.name} has "
+        + ("NO alpha channel" if not has_alpha else "a fully opaque alpha channel")
+        + ".\n"
+        "  The channel accepted `background=transparent` yet returned an opaque image\n"
+        "  (measured on heyroute). Do NOT ship this file as a transparent master:\n"
+        "  report it to the user and switch to a channel with native alpha.",
+        file=sys.stderr,
+    )
+    return False
 
 
 def detect_format(data):
@@ -1030,6 +1066,8 @@ def main():
     if note:
         print(note, file=sys.stderr)
 
+    transparent_verified = verify_transparent_output(wrote) if args.transparent else None
+
     actual = image_size(wrote)
     actual_str = f"{actual[0]}x{actual[1]}" if actual else "unknown"
     mismatch = bool(actual) and actual_str != size_str
@@ -1041,6 +1079,7 @@ def main():
         "model": model,
         "quality": quality,
         "transparent": args.transparent,
+        "transparent_verified": transparent_verified,
         "endpoint": "edits" if (args.image and not json_images) else "generations",
         "requested_spec": args.size,
         "resolved_size": size_str,
@@ -1062,6 +1101,7 @@ def main():
         "actual_size": actual_str,
         "quality": quality,
         "transparent": args.transparent,
+        "transparent_verified": transparent_verified,
         "n": args.n,
         "watermark": extra_params.get("watermark"),
         "reference_images": [str(Path(p)) for p in args.image],

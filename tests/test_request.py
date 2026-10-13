@@ -34,6 +34,18 @@ buf = io.BytesIO()
 Image.new("RGB", (64, 64), (10, 20, 30)).save(buf, "PNG")
 PNG_B64 = base64.b64encode(buf.getvalue()).decode()
 
+
+def _png_b64(mode, color):
+    b = io.BytesIO()
+    Image.new(mode, (64, 64), color).save(b, "PNG")
+    return base64.b64encode(b.getvalue()).decode()
+
+
+# What the stubbed provider hands back. Swapped per case: the --transparent
+# read-back check has to be shown both an honest alpha PNG and a lying opaque one.
+ALPHA_PNG_B64 = _png_b64("RGBA", (10, 20, 30, 0))
+RESP = {"b64": PNG_B64}
+
 cap = {}
 
 
@@ -44,7 +56,7 @@ class FakeResp:
 
     @property
     def text(self):
-        return json.dumps({"data": [{"b64_json": PNG_B64}]})
+        return json.dumps({"data": [{"b64_json": RESP["b64"]}]})
 
 
 def fake_post(url, headers=None, data=None, files=None, json=None, timeout=None, stream=False, proxies=None):
@@ -75,6 +87,20 @@ def run(argv):
     cap.clear()
     sys.argv = ["generate.py"] + [str(a) for a in argv]
     gen.main()
+
+
+def run_capture(argv):
+    """Run main() with both streams captured; return (stdout, stderr, exit code)."""
+    cap.clear()
+    out, err = io.StringIO(), io.StringIO()
+    sys.argv = ["generate.py"] + [str(a) for a in argv]
+    code = 0
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            gen.main()
+    except SystemExit as exc:
+        code = exc.code if exc.code is not None else 0
+    return out.getvalue(), err.getvalue(), code
 
 
 print("--- A) edits branch (heyroute, single image, SSE) ---")
@@ -120,17 +146,13 @@ print("--- D) --transparent: the native-alpha recipe and its local preconditions
 # scenarios below assert that no request was even built.
 ALPHA_REF = TMP / "_alpha_ref.png"
 Image.new("RGBA", (48, 36), (9, 9, 9, 0)).save(ALPHA_REF)
+RESP["b64"] = ALPHA_PNG_B64  # an honest channel: the returned picture really has alpha
 
 
 def run_expect_die(argv):
     """Run main() expecting die(); return (exit code, stderr text)."""
-    err = io.StringIO()
-    try:
-        with contextlib.redirect_stderr(err):
-            run(argv)
-    except SystemExit as exc:
-        return exc.code, err.getvalue()
-    return None, err.getvalue()
+    _, err, code = run_capture(argv)
+    return (code or None), err
 
 
 run(["--provider", "volcengine", "--model", "doubao-seedream-5-0-pro-260628",
@@ -165,6 +187,63 @@ code, err = run_expect_die(["--provider", "heyroute", "--model", "gpt-image-2", 
                             "--transparent", "--out", str(TMP / "_rb_hey.png")])
 check("refused on a model with no declared recipe",
       code == 1 and "not supported" in err and not cap, (code, err.strip()[-110:]))
+
+print("--- E) --transparent verifies the OUTPUT, not just the request ---")
+# A perfect request is not proof: heyroute accepted `background=transparent` and
+# returned an opaque image anyway (HTTP 200). So the saved file is read back and
+# the verdict lands in the run report and the sidecar. It is a warning, never a
+# die(): the generation is already billed and the file already written, so the
+# run has to finish and say so rather than pretend otherwise.
+
+TRANS_ARGS = ["--provider", "volcengine", "--model", "doubao-seedream-5-0-pro-260628",
+              "--size", "3:4 2K", "--prompt", "hello", "--image", ALPHA_REF, "--transparent"]
+
+RESP["b64"] = ALPHA_PNG_B64
+out, err, code = run_capture(TRANS_ARGS + ["--out", str(TMP / "_rb_ok.png")])
+rep = json.loads(out)
+check("honest alpha output -> transparent_verified true",
+      rep.get("transparent_verified") is True, rep.get("transparent_verified"))
+check("...and the read-back is announced on stderr", "real alpha" in err, err.strip()[-120:])
+check("...the saved file really does carry alpha",
+      gen.alpha_coverage(TMP / "_rb_ok.png")[0] is True, gen.alpha_coverage(TMP / "_rb_ok.png"))
+side_ok_path = TMP / "_rb_ok.json"
+side_ok = json.loads(side_ok_path.read_text(encoding="utf-8")) if side_ok_path.exists() else {}
+check("...the sidecar carries the same verdict",
+      side_ok.get("transparent_verified") is True, side_ok.get("transparent_verified"))
+
+RESP["b64"] = PNG_B64  # the lying channel: request accepted, picture opaque
+out, err, code = run_capture(TRANS_ARGS + ["--out", str(TMP / "_rb_liar.png")])
+rep = json.loads(out)
+check("opaque output -> transparent_verified false (not silently accepted)",
+      rep.get("transparent_verified") is False, rep.get("transparent_verified"))
+check("...and it warns loudly on stderr",
+      "WARNING" in err and "NO alpha" in err, err.strip()[-200:])
+check("...still exits 0 (warn, never auto-retry a billed run)", code == 0, code)
+check("...the saved file really is opaque (nothing was faked)",
+      gen.alpha_coverage(TMP / "_rb_liar.png")[0] is False, gen.alpha_coverage(TMP / "_rb_liar.png"))
+
+# Volcengine's alpha ceiling comes back as 254, not 255 (measured; noted in the
+# provider archive). The read-back must not count those 254s as transparency:
+# an all-254 image is opaque, and a half-254 image is only half transparent.
+CEIL_PNG_B64 = _png_b64("RGBA", (10, 20, 30, 254))
+MIXED = Image.new("RGBA", (64, 64), (10, 20, 30, 254))
+MIXED.paste(Image.new("RGBA", (32, 64), (10, 20, 30, 0)), (0, 0))
+_mixed_buf = io.BytesIO()
+MIXED.save(_mixed_buf, "PNG")
+MIXED_PNG_B64 = base64.b64encode(_mixed_buf.getvalue()).decode()
+
+RESP["b64"] = CEIL_PNG_B64
+out, err, code = run_capture(TRANS_ARGS + ["--out", str(TMP / "_rb_ceil.png")])
+rep = json.loads(out)
+check("all-254 (volcengine ceiling) counts as OPAQUE, not transparent",
+      rep.get("transparent_verified") is False, rep.get("transparent_verified"))
+
+RESP["b64"] = MIXED_PNG_B64
+out, err, code = run_capture(TRANS_ARGS + ["--out", str(TMP / "_rb_mixed.png")])
+rep = json.loads(out)
+check("half-254/half-0 output is verified with an honest ratio",
+      rep.get("transparent_verified") is True and "50.0%" in err,
+      (rep.get("transparent_verified"), err.strip()[-130:]))
 
 print("fails =", len(fails), fails)
 sys.exit(1 if fails else 0)

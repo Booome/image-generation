@@ -37,6 +37,10 @@ MUTATIONS = [
      'if len(data) >= 24 and data[:8] == PNG_MAGIC and data[12:16] == b"IHDR":', "if False:"),
     ("generate: resolve_size forgets the tier clamp", GEN,
      'note += " (clamped down to provider limits)"', "pass"),
+    ("generate: count the 254 alpha ceiling as transparent", GEN,
+     "return True, 1.0 - ((hist[254] + hist[255]) / total)", "return True, 1.0"),
+    ("generate: accept any alpha-shaped output as verified", GEN,
+     "if has_alpha and ratio > 0.0:", "if True:"),
 
     ("mask_editor: break the transparent-alpha contract", "scripts/mask_editor.py",
      "id.data[i + 3] = s[i];", "id.data[i + 3] = 255;"),

@@ -87,3 +87,5 @@ skill 侧：`--transparent` 合并的正是这三个，且**在 `extra_params` �
 3. **`--out` 必须以 `.png` 结尾**。
 
 输出为 RGBA。已知小坑：alpha 满值回来是 **254 而非 255** —— 交付前做一次归一化。
+
+**skill 会把落盘的文件读回来复核**，把 `transparent_verified` 同时写进 run report 与 sidecar（未用该模式时为 `null`）。于是「接受了 `background=transparent` 却返回不透明图」的渠道会**在当次运行里就被抓住**，而不是被当成「透明母版」交出去。它选择**告警而非中止**：图已计费、文件已落盘，所以运行跑完并如实说明拿到了什么。
